@@ -21,6 +21,8 @@ select{width:100%}button:hover{background:#2c4664}button:disabled{opacity:.35;cu
 small{color:#8ea5bb}.note{border-left:3px solid #f4bb59;padding:12px;background:#283041;color:#d5e1ef;margin-top:24px;font-size:13px}
 #parts{padding-left:18px;color:#b4c7da;line-height:1.9}
 @media(max-width:900px){main{grid-template-columns:1fr;height:auto}aside:first-child{border:0;display:block}aside:last-child{border:0}.viewport{height:52vh;min-height:340px}header{padding:14px}}
+
+.sheet{position:absolute;inset:0;background:#0c1723f5;z-index:5;overflow:auto;padding:24px;display:flex;justify-content:center;align-items:flex-start}.sheet[hidden]{display:none}.sheet-inner{max-width:760px;width:100%;background:#17273a;border:1px solid #38536b;border-radius:15px;padding:25px}.sheet table{width:100%;border-collapse:collapse;margin:20px 0}.sheet td,.sheet th{padding:12px 8px;border-bottom:1px solid #34485d;text-align:left;font-size:13px}.sheet th{color:#a8bbce}.sheet input{accent-color:#38c5b6}.sheet .primary{width:100%}.chapter-nav{width:100%;margin:10px 0}.chapter-nav option{color:#fff}
 </style>
 </head>
 <body>
@@ -33,11 +35,11 @@ small{color:#8ea5bb}.note{border-left:3px solid #f4bb59;padding:12px;background:
 <button class="post active">▣ Cuisine / meuble complet</button>
 <button class="post" disabled>Plancher — à venir</button>
 <button class="post" disabled>Habillage — à venir</button>
-<h2>Composants illustrés</h2>
+<label for="chapterSelect">CHAPITRE</label><select id="chapterSelect" class="chapter-nav"></select><button id="openSheet" class="post">▤ Voir la fiche des pièces</button><h2>Composants illustrés</h2>
 <ul id="parts"><li>Panneaux bois</li><li>Évier et plaque</li><li>Tiroir et volet</li><li>Compartiment réseau</li><li>Tuyaux représentatifs</li></ul>
 <p><small>Les dimensions, assemblages et séquences sont fictifs, à remplacer par une procédure validée.</small></p>
 </aside>
-<section class="viewport"><div id="scene"></div>
+<section class="viewport"><div id="scene"></div><div id="sheet" class="sheet" hidden><div class="sheet-inner"><small id="sheetNumber"></small><h1 id="sheetTitle"></h1><p>Vérifier la disponibilité des éléments avant de commencer ce chapitre. Références fictives.</p><table><thead><tr><th>✓</th><th>Code article</th><th>Désignation</th><th>Qté</th></tr></thead><tbody id="bom"></tbody></table><p id="sheetStatus"></p><button class="primary" id="startChapter">Commencer ce chapitre →</button></div></div>
 <div class="overlay"><strong id="overlayTitle">Vue d'ensemble</strong><br><small>Glisser : tourner · molette/pincer : zoomer</small></div>
 <div class="controls"><button id="reset">⌖ Recentrer</button><button id="explode">⇱ Vue éclatée</button><button id="toggle">◉ Surbrillance</button></div>
 </section>
@@ -70,6 +72,22 @@ const steps=[
 {title:"Compartiment réseau",description:"Repérer le volume réservé au compartiment technique.",focus:["network"],check:"Aucun raccordement électrique représenté."},
 {title:"Tuyaux non raccordés",description:"Localiser les trajets fictifs d'eau chaude, d'eau froide et de gaz, sans raccordement.",focus:["hot","cold","gas"],check:"Ne pas utiliser cette vue pour réaliser ou vérifier un raccordement."}
 ];
+const chapters=[
+{name:"01 · Présentation",start:0,items:[{code:"DEMO-000",name:"Ensemble cuisine (vue d'ensemble)",qty:1}]},
+{name:"02 · Structure du meuble",start:1,items:[{code:"DEMO-101",name:"Panneau latéral gauche",qty:1},{code:"DEMO-102",name:"Panneau latéral droit",qty:1},{code:"DEMO-103",name:"Fond du caisson",qty:1},{code:"DEMO-104",name:"Panneau arrière",qty:1}]},
+{name:"03 · Plan de travail",start:2,items:[{code:"DEMO-201",name:"Plateau supérieur",qty:1}]},
+{name:"04 · Équipements",start:3,items:[{code:"DEMO-301",name:"Évier",qty:1},{code:"DEMO-302",name:"Plaque",qty:1}]},
+{name:"05 · Façades",start:4,items:[{code:"DEMO-401",name:"Tiroir",qty:1},{code:"DEMO-402",name:"Volet",qty:1}]},
+{name:"06 · Compartiment réseau",start:5,items:[{code:"DEMO-501",name:"Compartiment technique",qty:1}]},
+{name:"07 · Tuyaux non raccordés",start:6,items:[{code:"DEMO-601",name:"Tuyau eau chaude (symbolique)",qty:1},{code:"DEMO-602",name:"Tuyau eau froide (symbolique)",qty:1},{code:"DEMO-603",name:"Tuyau gaz (symbolique)",qty:1}]}
+];
+let activeChapter=0;const selections={};const chapterSelect=document.querySelector('#chapterSelect');
+chapters.forEach((c,i)=>chapterSelect.add(new Option(c.name,String(i))));
+function showSheet(ci){activeChapter=ci;const c=chapters[ci];chapterSelect.value=String(ci);document.querySelector('#sheetNumber').textContent=`CHAPITRE ${ci+1} / ${chapters.length}`;document.querySelector('#sheetTitle').textContent=c.name;const tbody=document.querySelector('#bom');tbody.replaceChildren();c.items.forEach((item,j)=>{const tr=document.createElement('tr');const td=document.createElement('td');const input=document.createElement('input');input.type='checkbox';input.checked=!!selections[ci+'-'+j];input.onchange=()=>{selections[ci+'-'+j]=input.checked;updateSheet()};td.append(input);tr.append(td);for(const val of [item.code,item.name,String(item.qty)]){const cell=document.createElement('td');cell.textContent=val;tr.append(cell)}tbody.append(tr)});document.querySelector('#sheet').hidden=false;updateSheet()}
+function updateSheet(){const c=chapters[activeChapter];const n=c.items.filter((_,j)=>selections[activeChapter+'-'+j]).length;document.querySelector('#sheetStatus').textContent=`${n} / ${c.items.length} références vérifiées`;document.querySelector('#startChapter').disabled=n!==c.items.length}
+document.querySelector('#startChapter').onclick=()=>{index=chapters[activeChapter].start;document.querySelector('#sheet').hidden=true;refresh()};
+document.querySelector('#openSheet').onclick=()=>showSheet(activeChapter);
+chapterSelect.onchange=()=>showSheet(Number(chapterSelect.value));
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(45,1,.1,100);
 camera.position.set(3.8,2.9,4.5);
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -101,11 +119,11 @@ document.querySelector('#prev').disabled=index===0;document.querySelector('#next
 for(const [name,p] of parts){const selected=s.focus.includes(name);p.mesh.material.color.setHex(p.color);p.mesh.material.emissive.setHex(highlight&&selected?0x175c65:0x000000);p.mesh.material.transparent=highlight&&s.focus.length>0&&!selected;p.mesh.material.opacity=highlight&&s.focus.length>0&&!selected?.22:1;
 p.mesh.position.copy(p.origin);if(exploded){p.mesh.position.x+=Math.sign(p.origin.x||1)*.28;p.mesh.position.y+=(name==="top"||name==="sink"||name==="hob")?.45:0;}}
 }
-document.querySelector('#prev').onclick=()=>{index=Math.max(0,index-1);refresh()};
-document.querySelector('#next').onclick=()=>{index=Math.min(steps.length-1,index+1);refresh()};
+document.querySelector('#prev').onclick=()=>{index=Math.max(0,index-1);const ci=chapters.findIndex(c=>c.start===index);if(ci>=0)showSheet(ci);else refresh()};
+document.querySelector('#next').onclick=()=>{index=Math.min(steps.length-1,index+1);const ci=chapters.findIndex(c=>c.start===index);if(ci>=0)showSheet(ci);else refresh()};
 document.querySelector('#toggle').onclick=()=>{highlight=!highlight;refresh()};
 document.querySelector('#explode').onclick=()=>{exploded=!exploded;refresh()};
 document.querySelector('#reset').onclick=()=>{camera.position.set(3.8,2.9,4.5);controls.target.set(0,.9,0);controls.update()};
-const host=document.querySelector('#scene');function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(host);resize();refresh();
+const host=document.querySelector('#scene');function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(host);resize();refresh();showSheet(0);
 function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();
 </script></body></html>
