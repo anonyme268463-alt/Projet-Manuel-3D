@@ -51,9 +51,16 @@ small{color:#8ea5bb}.note{border-left:3px solid #f4bb59;padding:12px;background:
 <div class="note">⚠ Démonstration visuelle uniquement. Aucune opération de gaz, eau, électricité ou fixation ne doit être réalisée sur la base de ce prototype. Suivre les consignes validées par l'entreprise.</div>
 </aside>
 </main>
+<script>
+window.addEventListener('error', e => {const el=document.querySelector('#scene');if(el&&!el.querySelector('canvas'))el.innerHTML='<div style="padding:35px;color:#ffd5a8">Impossible de charger le moteur 3D. Vérifiez votre connexion et rechargez la page.</div>';});
+window.addEventListener('unhandledrejection', e => {const el=document.querySelector('#scene');if(el&&!el.querySelector('canvas'))el.innerHTML='<div style="padding:35px;color:#ffd5a8">Erreur de chargement 3D. Rechargez la page.</div>';});
+</script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
-import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js';
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 const steps=[
 {title:"Vue d'ensemble",description:"Explorer les éléments de la cuisine de démonstration.",focus:[],check:"Identifier les pièces sur le modèle."},
 {title:"Structure du meuble",description:"Visualisation illustrative des panneaux constituant le caisson.",focus:["sideL","sideR","bottom","back"],check:"La vraie séquence d'assemblage reste à documenter."},
