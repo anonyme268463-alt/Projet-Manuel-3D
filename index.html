@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manuel 3D | Atelier</title>
+<style>
+:root{font-family:Inter,system-ui,Arial,sans-serif;color:#e9f1f8;background:#0b1220}
+*{box-sizing:border-box}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;border-bottom:1px solid #29374b;background:#111d2d}
+.logo{font-weight:800;letter-spacing:.05em}.tag{font-size:12px;color:#9fb3c9}main{display:grid;grid-template-columns:260px minmax(0,1fr) 330px;height:calc(100vh - 66px)}
+aside{padding:20px;background:#101c2b;overflow:auto}aside:first-child{border-right:1px solid #29374b}aside:last-child{border-left:1px solid #29374b}
+h1{font-size:22px;margin:8px 0 18px}h2{font-size:16px;margin:12px 0}p{color:#a8bbce;line-height:1.6}label{font-size:12px;color:#a8bbce;display:block;margin:18px 0 7px}
+select,button{background:#1b2b40;border:1px solid #344a63;color:#eaf3fb;border-radius:9px;padding:11px;cursor:pointer}
+select{width:100%}button:hover{background:#2c4664}button:disabled{opacity:.35;cursor:default}
+.post{width:100%;text-align:left;margin:6px 0}.post.active{background:#195c88;border-color:#39b8ef}
+.viewport{position:relative;min-width:0;background:radial-gradient(ellipse at center,#1b3145,#0a1220);overflow:hidden}
+#scene{width:100%;height:100%;touch-action:none}.overlay{position:absolute;top:16px;left:16px;background:#111d2dd9;padding:11px 14px;border-radius:10px;pointer-events:none}
+.controls{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
+.controls button{background:#17283ce8}.pill{display:inline-block;border-radius:50px;background:#164d63;color:#87e5ee;padding:6px 10px;font-size:12px}
+.progress{height:7px;background:#293b50;border-radius:10px;overflow:hidden;margin:18px 0}.bar{height:100%;background:#39c6b5;transition:width .2s}
+.navigation{display:flex;gap:8px;margin-top:24px}.navigation button{flex:1}.primary{background:#1477b9}
+small{color:#8ea5bb}.note{border-left:3px solid #f4bb59;padding:12px;background:#283041;color:#d5e1ef;margin-top:24px;font-size:13px}
+#parts{padding-left:18px;color:#b4c7da;line-height:1.9}
+@media(max-width:900px){main{grid-template-columns:1fr;height:auto}aside:first-child{border:0;display:block}aside:last-child{border:0}.viewport{height:52vh;min-height:340px}header{padding:14px}}
+</style>
+</head>
+<body>
+<header><div class="logo">◈ MANUEL 3D <span class="tag">/ ATELIER</span></div><span class="pill">DÉMONSTRATEUR NON OFFICIEL</span></header>
+<main>
+<aside>
+<small>PROJET PILOTE</small><h1>Montage cuisine</h1>
+<label for="vehicle">Modèle de véhicule</label><select id="vehicle"><option>Van de démonstration (générique)</option></select>
+<label>POSTES DE FABRICATION</label>
+<button class="post active">▣ Cuisine / meuble complet</button>
+<button class="post" disabled>Plancher — à venir</button>
+<button class="post" disabled>Habillage — à venir</button>
+<h2>Composants illustrés</h2>
+<ul id="parts"><li>Panneaux bois</li><li>Évier et plaque</li><li>Tiroir et volet</li><li>Compartiment réseau</li><li>Tuyaux représentatifs</li></ul>
+<p><small>Les dimensions, assemblages et séquences sont fictifs, à remplacer par une procédure validée.</small></p>
+</aside>
+<section class="viewport"><div id="scene"></div>
+<div class="overlay"><strong id="overlayTitle">Vue d'ensemble</strong><br><small>Glisser : tourner · molette/pincer : zoomer</small></div>
+<div class="controls"><button id="reset">⌖ Recentrer</button><button id="explode">⇱ Vue éclatée</button><button id="toggle">◉ Surbrillance</button></div>
+</section>
+<aside>
+<span class="pill" id="counter">ÉTAPE 1 / 7</span>
+<div class="progress"><div class="bar" id="bar"></div></div>
+<h1 id="title"></h1><p id="description"></p>
+<label>ÉLÉMENTS MIS EN ÉVIDENCE</label><p id="focus"></p>
+<label>CONTRÔLE</label><p id="check"></p>
+<div class="navigation"><button id="prev">← Précédent</button><button id="next" class="primary">Suivant →</button></div>
+<div class="note">⚠ Démonstration visuelle uniquement. Aucune opération de gaz, eau, électricité ou fixation ne doit être réalisée sur la base de ce prototype. Suivre les consignes validées par l'entreprise.</div>
+</aside>
+</main>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js';
+const steps=[
+{title:"Vue d'ensemble",description:"Explorer les éléments de la cuisine de démonstration.",focus:[],check:"Identifier les pièces sur le modèle."},
+{title:"Structure du meuble",description:"Visualisation illustrative des panneaux constituant le caisson.",focus:["sideL","sideR","bottom","back"],check:"La vraie séquence d'assemblage reste à documenter."},
+{title:"Plan de travail",description:"Repérer le plateau supérieur et les réservations symboliques.",focus:["top"],check:"Dimensions et découpes non contractuelles."},
+{title:"Évier et plaque",description:"Localiser l'évier et la plaque sur le dessus du meuble.",focus:["sink","hob"],check:"Suivre exclusivement les notices et contrôles validés."},
+{title:"Tiroir et volet",description:"Identifier les éléments mobiles de façade.",focus:["drawer","shutter"],check:"Mécanismes et jeux non représentatifs."},
+{title:"Compartiment réseau",description:"Repérer le volume réservé au compartiment technique.",focus:["network"],check:"Aucun raccordement électrique représenté."},
+{title:"Tuyaux non raccordés",description:"Localiser les trajets fictifs d'eau chaude, d'eau froide et de gaz, sans raccordement.",focus:["hot","cold","gas"],check:"Ne pas utiliser cette vue pour réaliser ou vérifier un raccordement."}
+];
+const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(45,1,.1,100);
+camera.position.set(3.8,2.9,4.5);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+document.querySelector('#scene').appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,.9,0);controls.minDistance=2;controls.maxDistance=11;
+scene.add(new THREE.HemisphereLight(0xffffff,0x33435a,2.1));
+const light=new THREE.DirectionalLight(0xffffff,2.2);light.position.set(3,7,5);scene.add(light);
+const grid=new THREE.GridHelper(9,18,0x3c6478,0x243b50);scene.add(grid);
+const parts=new Map();const wood=0xb58c5d, metal=0xbacbd7;
+function addBox(name,w,h,d,x,y,z,color){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color,roughness:.7}));m.position.set(x,y,z);scene.add(m);parts.set(name,{mesh:m,origin:m.position.clone(),color});return m}
+addBox("bottom",1.9,.09,.8,0,.2,0,wood);
+addBox("sideL",.09,1.45,.8,-.94,.97,0,wood);
+addBox("sideR",.09,1.45,.8,.94,.97,0,wood);
+addBox("back",1.75,1.45,.06,0,.97,-.37,0x96744f);
+addBox("top",2.05,.1,.95,0,1.75,0,0xd2b28b);
+addBox("sink",.63,.035,.48,-.47,1.82,.04,metal);
+addBox("hob",.67,.035,.48,.47,1.82,.04,0x273b4c);
+addBox("drawer",.75,.28,.08,-.46,1.35,.46,0xdec39b);
+addBox("shutter",.78,.78,.08,.48,.76,.46,0xc9a678);
+addBox("network",.65,.38,.15,-.47,.68,.30,0x405d78);
+function tube(name,x,color){const points=[new THREE.Vector3(x,1.63,-.08),new THREE.Vector3(x,1.10,-.08),new THREE.Vector3(x,.6,-.20)];
+const mesh=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),24,.023,8,false),new THREE.MeshStandardMaterial({color,roughness:.35}));
+scene.add(mesh);parts.set(name,{mesh,origin:mesh.position.clone(),color});}
+tube("hot",-.60,0xf47d69);tube("cold",-.42,0x5daef7);tube("gas",.54,0xf0d05d);
+let index=0,highlight=true,exploded=false;
+function refresh(){const s=steps[index];document.querySelector('#title').textContent=s.title;document.querySelector('#description').textContent=s.description;document.querySelector('#focus').textContent=s.focus.length?s.focus.join(" · "):"Ensemble du meuble";document.querySelector('#check').textContent=s.check;
+document.querySelector('#counter').textContent=`ÉTAPE ${index+1} / ${steps.length}`;document.querySelector('#bar').style.width=`${(index+1)/steps.length*100}%`;document.querySelector('#overlayTitle').textContent=s.title;
+document.querySelector('#prev').disabled=index===0;document.querySelector('#next').disabled=index===steps.length-1;
+for(const [name,p] of parts){const selected=s.focus.includes(name);p.mesh.material.color.setHex(p.color);p.mesh.material.emissive.setHex(highlight&&selected?0x175c65:0x000000);p.mesh.material.transparent=highlight&&s.focus.length>0&&!selected;p.mesh.material.opacity=highlight&&s.focus.length>0&&!selected?.22:1;
+p.mesh.position.copy(p.origin);if(exploded){p.mesh.position.x+=Math.sign(p.origin.x||1)*.28;p.mesh.position.y+=(name==="top"||name==="sink"||name==="hob")?.45:0;}}
+}
+document.querySelector('#prev').onclick=()=>{index=Math.max(0,index-1);refresh()};
+document.querySelector('#next').onclick=()=>{index=Math.min(steps.length-1,index+1);refresh()};
+document.querySelector('#toggle').onclick=()=>{highlight=!highlight;refresh()};
+document.querySelector('#explode').onclick=()=>{exploded=!exploded;refresh()};
+document.querySelector('#reset').onclick=()=>{camera.position.set(3.8,2.9,4.5);controls.target.set(0,.9,0);controls.update()};
+const host=document.querySelector('#scene');function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(host);resize();refresh();
+function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();
+</script></body></html>
