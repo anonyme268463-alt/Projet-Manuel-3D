@@ -1,0 +1,34 @@
+INTÉGRATION DANS LE DÉPÔT GITHUB
+
+1. Déposer `creator.js` et `creator.css` à la racine, au même niveau que `index.html`.
+2. Dans `index.html`, dans le <head>, après styles.css, ajouter :
+   <link rel="stylesheet" href="./creator.css">
+3. En bas de `index.html`, après le script app.js, ajouter :
+   <script type="module" src="./creator.js"></script>
+   Ne pas supprimer onboarding.js ni protection.js.
+4. Vérifier que le projet Firebase est bien `guide-3d`.
+5. Pour permettre les opérations CRUD, Firestore doit autoriser les lectures et écritures. Le fichier firestore.rules fourni ouvre TOUTE la base à tout Internet. Ne le publier que si tu acceptes ce risque. Le PIN 0342 n'est pas une sécurité serveur.
+6. Publier GitHub Pages et tester : bouton « Espace Créateur » > PIN 0342 > créer un véhicule de test > actualiser > supprimer le test.
+7. Exporter une sauvegarde JSON avant tout import important.
+
+STRUCTURE DES DOCUMENTS
+
+vehicles:
+{ name, slug, description, active, order }
+
+finishes:
+{ name, slug, label, colors: [], compatibleVehicleIds: [], imageUrl, active, order }
+
+workstations:
+{ name, slug, description, icon, active, order }
+
+procedures:
+{ title, description, vehicleId, finishId, workstationId, status: "draft"|"published", version, coverImage, order }
+
+chapters:
+{ procedureId, title, description, order, active, bom: [{code,name,quantity}], steps: [{title,instruction,photos:[],tools:[],parts:[],check,focus:[]}] }
+
+users:
+Réservée à la future authentification. L'espace Créateur ne lit ni n'écrit cette collection.
+
+Les photos peuvent être référencées par URL dans `photos` (ex. chemins GitHub). Préférer les chemins relatifs stables du dépôt lorsque les fichiers sont hébergés avec le site.

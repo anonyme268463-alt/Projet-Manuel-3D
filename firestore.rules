@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ATTENTION : accès public volontaire, à utiliser uniquement pour un prototype temporaire.
+    // Toute personne connaissant le projet peut lire, créer, modifier et supprimer les documents.
+    // Le PIN de l'interface web ne protège PAS ces règles.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
