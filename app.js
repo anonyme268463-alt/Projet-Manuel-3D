@@ -23,7 +23,7 @@ function openSheet(index){const chapter=chapters[index];$('sheetChapter').textCo
  $('startChapter').onclick=()=>{state.index=firstStepOfChapter(index);$('sheet').hidden=true;renderStep()};$('sheet').hidden=false;updateSheet(index);$('closeSheet').focus();}
 function updateSheet(index){const chapter=chapters[index];const count=chapter.items.filter(([code])=>state.checked.has(`${chapter.id}:${code}`)).length;$('sheetStatus').textContent=`${count} / ${chapter.items.length} références vérifiées`;$('sheetProgress').style.width=`${count/chapter.items.length*100}%`;$('startChapter').disabled=count!==chapter.items.length;}
 $('prev').addEventListener('click',()=>navigate(-1));$('next').addEventListener('click',()=>navigate(1));$('openSheet').addEventListener('click',()=>openSheet(sequence[state.index].chapterIndex));$('closeSheet').addEventListener('click',()=>$('sheet').hidden=true);$('sheet').addEventListener('click',event=>{if(event.target===$('sheet'))$('sheet').hidden=true});document.addEventListener('keydown',event=>{if(event.key==='Escape')$('sheet').hidden=true});
-renderStep();openSheet(0);
+renderStep();
 // L'interface et les procédures restent utilisables si le CDN 3D est inaccessible.
 try{const {AssemblyViewer}=await import('./viewer.js');state.viewer=new AssemblyViewer($('scene'));state.viewer.setFocus(sequence[state.index].focus);
  $('reset').onclick=()=>state.viewer.reset();$('explode').onclick=()=>{$('explode').setAttribute('aria-pressed',String(state.viewer.toggleExplode()))};$('highlight').onclick=()=>{$('highlight').setAttribute('aria-pressed',String(state.viewer.toggleHighlight()))};$('zoomIn').onclick=()=>state.viewer.zoom(.83);$('zoomOut').onclick=()=>state.viewer.zoom(1.2);

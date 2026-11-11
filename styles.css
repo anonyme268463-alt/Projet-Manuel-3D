@@ -25,3 +25,10 @@
 .wizard-bottom{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-top:auto;padding-top:36px;color:#8294a3;font-size:11px}.change-configuration{background:transparent;color:#c8d9e6;border:1px solid #496681;border-radius:8px;padding:10px;margin-top:14px;font-size:11px;font-weight:700}.selected-configuration{font-size:11px;color:#738a9a;margin:8px 0 0}
 @media(max-width:800px){.welcome-screen{grid-template-columns:1fr}.welcome-card{padding:40px 25px}.welcome-brand{margin-bottom:40px}.welcome-side{min-height:220px}.wizard-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.wizard-cards{grid-template-columns:1fr}.wizard-card{min-height:120px}.wizard-heading h1{font-size:29px}.welcome-card h1{font-size:43px}}
+
+/* Message de dissuasion à l'inspection (ne remplace pas la sécurité serveur). */
+#inspection-notice{position:fixed;inset:0;z-index:99999;background:rgba(8,24,39,.80);backdrop-filter:blur(8px);display:grid;place-items:center;padding:20px}
+#inspection-notice[hidden]{display:none!important}
+.inspection-card{width:min(460px,100%);background:#fff;border-radius:18px;padding:38px 28px;text-align:center;box-shadow:0 25px 80px #06131e70}
+.inspection-icon{font-size:40px;margin-bottom:14px}.inspection-card h2{font:800 23px/1.35 Manrope,sans-serif;color:#18354e;margin:0 0 12px}.inspection-card p{font-size:13px;color:#738797;line-height:1.6;margin:0 0 25px}
+.inspection-card button{border:0;border-radius:9px;background:#198462;color:white;padding:13px 20px;font-weight:800;cursor:pointer}
