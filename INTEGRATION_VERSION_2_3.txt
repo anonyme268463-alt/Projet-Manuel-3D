@@ -1,0 +1,15 @@
+GUIDE 3D — VERSION 2.3 : ANTI-DEBUGGING AVEC EXCEPTION ADMIN
+
+Fichiers à remplacer dans le dépôt GitHub (racine) :
+- creator.js
+- protection.js
+
+Ne remplace pas creator.css ni index.html si tu utilises déjà la version 2.1/2.2 qui charge ces scripts.
+
+Comportement :
+- Visiteur normal : clic droit, F12, Ctrl+Shift+I/J/C/K et Ctrl+U sont interceptés avec un petit message en bas de page.
+- Administrateur : ouvre « Espace Créateur », saisit le PIN 0342 ; après validation, les outils de développement et le clic droit sont autorisés pour le reste de la session de page.
+- Rechargement de la page : la session admin est réinitialisée et le PIN doit être saisi à nouveau.
+
+Important :
+Cette protection est uniquement dissuasive. Le JavaScript et les ressources du site restent téléchargeables et une personne expérimentée peut contourner les blocages. Les droits réels de Firestore dépendent exclusivement des règles Firestore / authentification.
