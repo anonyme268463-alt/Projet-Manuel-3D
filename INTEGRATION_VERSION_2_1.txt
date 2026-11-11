@@ -1,0 +1,21 @@
+CORRECTIF VERSION 2.1 — ESPACE CRÉATEUR
+
+Dans ce ZIP :
+- creator.js et creator.css : les deux fichiers de l'espace Créateur.
+- index.html : version corrigée qui charge explicitement creator.css et creator.js.
+- firestore.rules : règles de test ouvertes (risque de modification publique).
+- README.txt et INTEGRATION.txt : instructions.
+
+INSTALLATION
+1. Décompresse ce ZIP.
+2. Téléverse creator.js, creator.css et index.html à la racine du dépôt GitHub, au même niveau que app.js.
+3. Ne remplace PAS app.js, data.js, viewer.js, styles.css, onboarding.js ni protection.js : ils restent ceux déjà présents dans ton dépôt.
+4. Ne supprime pas antilope-van-logo.webp.
+5. Publie GitHub Pages puis fais Ctrl+F5.
+6. Le bouton « ⚙ Espace Créateur » doit apparaître en haut à droite. Clique dessus et entre 0342.
+
+Si le bouton n'apparaît toujours pas : ouvre directement l'URL du site suivie de ?debug=1 puis vérifie la console du navigateur. Vérifie aussi que creator.js et creator.css sont bien accessibles à la racine.
+
+SÉCURITÉ
+Le PIN est une barrière visuelle et se trouve dans le JavaScript public. Il ne sécurise pas Firestore.
+Le fichier firestore.rules fourni autorise tous les visiteurs à lire et modifier toutes les collections. Ne l'applique que pour un prototype jetable, sans données internes.

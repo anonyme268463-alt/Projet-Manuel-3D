@@ -1,21 +1,83 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#112a4d">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#112a4d">
 <meta name="description" content="Démonstrateur non officiel de manuel d'assemblage 3D interactif pour van aménagé.">
 <title>Atelier 3D | Démonstrateur Antilope Van</title>
 <link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./creator.css">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
-<header class="topbar"><div class="brand"><img src="./antilope-van-logo.webp" alt="Antilope Van" class="brand-logo"><div class="brand-divider"></div><div><strong>ATELIER <span>3D</span></strong><small>MANUEL D'ASSEMBLAGE</small></div></div><div class="top-actions"><span class="version">VERSION DÉMO 2.0</span><span class="status"><i></i> Prototype non officiel</span></div></header>
+<header class="topbar">
+  <div class="brand">
+    <img src="./antilope-van-logo.webp" alt="Antilope Van" class="brand-logo">
+    <div class="brand-divider"></div>
+    <div><strong>ATELIER <span>3D</span></strong><small>MANUEL D'ASSEMBLAGE</small></div>
+  </div>
+  <div class="top-actions">
+    <span class="version">VERSION DÉMO 2.1</span>
+    <span class="status"><i></i> Prototype non officiel</span>
+  </div>
+</header>
+
 <div class="workspace">
-<aside class="sidebar"><div class="eyebrow">ESPACE DE PRODUCTION</div><h1>Bibliothèque<br>des procédures<span class="dot">.</span></h1><div class="field"><label for="vehicle">VÉHICULE</label><select id="vehicle"><option>Van générique · Démonstration</option></select></div><div class="field"><label for="station">POSTE DE TRAVAIL</label><select id="station"><option>01 · Assemblage cuisine</option></select></div><div class="side-heading"><span>CHAPITRES</span><span id="chapterCount"></span></div><nav id="chapterList" aria-label="Chapitres du manuel"></nav><div class="side-footer"><div class="footer-icon">ⓘ</div><p><strong>Projet pilote</strong><br>Les étapes, références et dimensions sont fictives. Ne pas utiliser comme instruction de fabrication.</p></div></aside>
-<main class="center"><div class="viewer-heading"><div><div class="eyebrow">VISUALISATION TECHNIQUE / ASSEMBLAGE</div><h2 id="viewerTitle">Cuisine · Vue d'ensemble</h2></div><span class="view-badge"><span class="green-dot"></span> MODÈLE 3D INTERACTIF</span></div><div class="viewport" id="viewport"><div id="scene" role="img" aria-label="Maquette tridimensionnelle de cuisine de van"></div><div class="view-hint">◈ <span id="partHint">Vue générale du sous-ensemble</span></div><div class="axis-label">MODÈLE SCHÉMATIQUE · SANS COTES</div><div class="viewer-tools"><button id="reset" title="Recentrer la caméra">⌖ <span>Recentrer</span></button><button id="explode" aria-pressed="false" title="Afficher les pièces séparées">⇱ <span>Vue éclatée</span></button><button id="highlight" aria-pressed="true" title="Activer la surbrillance">◉ <span>Surbrillance</span></button><button id="zoomIn" title="Zoomer">＋</button><button id="zoomOut" title="Dézoomer">−</button></div><div id="sceneError" class="scene-error" hidden><strong>La 3D n'a pas pu être chargée.</strong><p>Vérifiez la connexion Internet et rechargez la page. Les instructions restent accessibles.</p></div></div><div class="viewer-bottom"><span>🖱 Rotation : glisser · Zoom : molette ou pincement · Déplacement : clic droit</span><span>THREE.JS · WEBGL</span></div></main>
-<aside class="instructions"><div class="instruction-top"><div class="eyebrow">GUIDE OPÉRATEUR</div><div class="step-badge" id="stepBadge">ÉTAPE 01 / 07</div></div><div class="progress-track"><div id="progressBar"></div></div><div class="chapter-kicker" id="chapterKicker"></div><h2 id="stepTitle">Chargement...</h2><p class="step-desc" id="stepDescription"></p><div class="detail-card"><div class="detail-label">◈ PIÈCES CONCERNÉES</div><div id="stepParts" class="detail-content"></div></div><div class="detail-card"><div class="detail-label">✓ POINT DE CONTRÔLE</div><div id="stepCheck" class="detail-content"></div></div><div class="navigation"><button id="prev" class="btn-outline">← Précédent</button><button id="next" class="btn-primary">Suivant →</button></div><button id="openSheet" class="sheet-link">▤ Consulter la nomenclature du chapitre ↗</button><div class="safety"><strong>⚠ DOCUMENT DE DÉMONSTRATION</strong><p>Aucune instruction de raccordement gaz, eau ou électricité n'est fournie. Utiliser uniquement les procédures approuvées par l'entreprise.</p></div><div class="instruction-footer">CONCEPT · MANUEL NUMÉRIQUE INTERACTIF</div></aside>
+  <aside class="sidebar">
+    <div class="eyebrow">ESPACE DE PRODUCTION</div>
+    <h1>Bibliothèque<br>des procédures<span class="dot">.</span></h1>
+    <div class="field"><label for="vehicle">VÉHICULE</label><select id="vehicle"><option>Van générique · Démonstration</option></select></div>
+    <div class="field"><label for="station">POSTE DE TRAVAIL</label><select id="station"><option>01 · Assemblage cuisine</option></select></div>
+    <div class="side-heading"><span>CHAPITRES</span><span id="chapterCount"></span></div>
+    <nav id="chapterList" aria-label="Chapitres du manuel"></nav>
+    <div class="side-footer"><div class="footer-icon">ⓘ</div><p><strong>Projet pilote</strong><br>Les étapes, références et dimensions sont fictives. Ne pas utiliser comme instruction de fabrication.</p></div>
+  </aside>
+
+  <main class="center">
+    <div class="viewer-heading">
+      <div><div class="eyebrow">VISUALISATION TECHNIQUE / ASSEMBLAGE</div><h2 id="viewerTitle">Cuisine · Vue d'ensemble</h2></div>
+      <span class="view-badge"><span class="green-dot"></span> MODÈLE 3D INTERACTIF</span>
+    </div>
+    <div class="viewport" id="viewport">
+      <div id="scene" role="img" aria-label="Maquette tridimensionnelle de cuisine de van"></div>
+      <div class="view-hint">◈ <span id="partHint">Vue générale du sous-ensemble</span></div>
+      <div class="axis-label">MODÈLE SCHÉMATIQUE · SANS COTES</div>
+      <div class="viewer-tools">
+        <button id="reset" title="Recentrer la caméra">⌖ <span>Recentrer</span></button>
+        <button id="explode" aria-pressed="false" title="Afficher les pièces séparées">⇱ <span>Vue éclatée</span></button>
+        <button id="highlight" aria-pressed="true" title="Activer la surbrillance">◉ <span>Surbrillance</span></button>
+        <button id="zoomIn" title="Zoomer">＋</button><button id="zoomOut" title="Dézoomer">−</button>
+      </div>
+      <div id="sceneError" class="scene-error" hidden><strong>La 3D n'a pas pu être chargée.</strong><p>Vérifiez la connexion Internet et rechargez la page. Les instructions restent accessibles.</p></div>
+    </div>
+    <div class="viewer-bottom"><span>🖱 Rotation : glisser · Zoom : molette ou pincement · Déplacement : clic droit</span><span>THREE.JS · WEBGL</span></div>
+  </main>
+
+  <aside class="instructions">
+    <div class="instruction-top"><div class="eyebrow">GUIDE OPÉRATEUR</div><div class="step-badge" id="stepBadge">ÉTAPE 01 / 07</div></div>
+    <div class="progress-track"><div id="progressBar"></div></div>
+    <div class="chapter-kicker" id="chapterKicker"></div><h2 id="stepTitle">Chargement...</h2><p class="step-desc" id="stepDescription"></p>
+    <div class="detail-card"><div class="detail-label">◈ PIÈCES CONCERNÉES</div><div id="stepParts" class="detail-content"></div></div>
+    <div class="detail-card"><div class="detail-label">✓ POINT DE CONTRÔLE</div><div id="stepCheck" class="detail-content"></div></div>
+    <div class="navigation"><button id="prev" class="btn-outline">← Précédent</button><button id="next" class="btn-primary">Suivant →</button></div>
+    <button id="openSheet" class="sheet-link">▤ Consulter la nomenclature du chapitre ↗</button>
+    <div class="safety"><strong>⚠ DOCUMENT DE DÉMONSTRATION</strong><p>Aucune instruction de raccordement gaz, eau ou électricité n'est fournie. Utiliser uniquement les procédures approuvées par l'entreprise.</p></div>
+    <div class="instruction-footer">CONCEPT · MANUEL NUMÉRIQUE INTERACTIF</div>
+  </aside>
 </div>
-<div id="sheet" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="modal-panel"><div class="modal-header"><div><div class="eyebrow" id="sheetChapter"></div><h2 id="sheetTitle">Fiche de préparation</h2><p>Vérifier les pièces nécessaires avant de commencer. Références fictives.</p></div><button id="closeSheet" class="icon-button" aria-label="Fermer la fiche">✕</button></div><div class="table-scroll"><table><thead><tr><th>VÉRIFIÉ</th><th>CODE ARTICLE</th><th>DÉSIGNATION</th><th>QTÉ</th></tr></thead><tbody id="bomRows"></tbody></table></div><div class="modal-footer"><div><strong id="sheetStatus">0 pièce vérifiée</strong><div class="mini-track"><div id="sheetProgress"></div></div></div><button id="startChapter" class="btn-primary">Démarrer le chapitre →</button></div></div></div>
+
+<div id="sheet" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="modal-panel">
+    <div class="modal-header"><div><div class="eyebrow" id="sheetChapter"></div><h2 id="sheetTitle">Fiche de préparation</h2><p>Vérifier les pièces nécessaires avant de commencer. Références fictives.</p></div><button id="closeSheet" class="icon-button" aria-label="Fermer la fiche">✕</button></div>
+    <div class="table-scroll"><table><thead><tr><th>VÉRIFIÉ</th><th>CODE ARTICLE</th><th>DÉSIGNATION</th><th>QTÉ</th></tr></thead><tbody id="bomRows"></tbody></table></div>
+    <div class="modal-footer"><div><strong id="sheetStatus">0 pièce vérifiée</strong><div class="mini-track"><div id="sheetProgress"></div></div></div><button id="startChapter" class="btn-primary">Démarrer le chapitre →</button></div>
+  </div>
+</div>
+
 <script type="module" src="./app.js"></script>
 <script type="module" src="./onboarding.js"></script>
+<script type="module" src="./creator.js"></script>
 <script src="./protection.js" defer></script>
-</body></html>
+</body>
+</html>
