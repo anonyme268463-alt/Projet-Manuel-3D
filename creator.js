@@ -199,6 +199,7 @@ function createInterface() {
     $("pinOverlay").hidden = true;
     // Session administrateur : l'anti-debugging du site est désactivé.
     window.__CREATOR_ADMIN__ = true;
+    document.documentElement.dataset.creatorAdmin = "true";
     panel.hidden = false;
     loadRecords();
   });
