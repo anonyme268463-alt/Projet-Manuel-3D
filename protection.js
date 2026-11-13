@@ -1,14 +1,12 @@
 /*
  * GUIDE 3D — PROTECTION DISSUASIVE
  * Visiteurs : bloque menu contextuel et raccourcis d'inspection.
- * Admin : dès que le PIN a été validé et le panneau Créateur ouvert,
- * tous ces blocages sont levés pour cette page.
- *
- * Ce mécanisme n'est pas une sécurité serveur : les ressources restent publiques.
+ * Créateur : demande le PIN avant d'autoriser l'ouverture du panneau.
+ * Ce mécanisme est dissuasif côté navigateur, pas une sécurité serveur.
  */
 (() => {
   const isAdmin = () => {
-    const panel = document.getElementById("creatorPanel");
+    const panel = document.getElementById("v3Panel") || document.getElementById("creatorPanel");
     return window.__CREATOR_ADMIN__ === true
       || document.documentElement.dataset.creatorAdmin === "true"
       || Boolean(panel && panel.hidden === false);
@@ -35,13 +33,45 @@
     notice.textContent = message;
     notice.style.opacity = "1";
     clearTimeout(noticeTimer);
-    noticeTimer = setTimeout(() => { notice.style.opacity = "0"; }, 2200);
+    noticeTimer = setTimeout(() => { notice.style.opacity = "0"; }, 2400);
   }
+
+  // Le contrôle est placé en phase capture pour s'exécuter avant le clic du bouton Créateur.
+  document.addEventListener("click", event => {
+    const button = event.target.closest?.(".creator-open");
+    if (!button || window.__CREATOR_ADMIN__ === true) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+
+    const entered = window.prompt("ACCÈS RÉSERVÉ\nEntrez le code PIN administrateur :");
+    if (entered === null) return;
+
+    if (entered.trim() !== "0342") {
+      showNotice("Accès refusé : code PIN incorrect.");
+      return;
+    }
+
+    window.__CREATOR_ADMIN__ = true;
+    document.documentElement.dataset.creatorAdmin = "true";
+    // Rejoue le clic : le bouton peut alors ouvrir normalement le panneau.
+    button.click();
+  }, true);
+
+  const watchCreator = new MutationObserver(() => {
+    const panel = document.getElementById("v3Panel");
+    if (panel && panel.hidden) {
+      window.__CREATOR_ADMIN__ = false;
+      delete document.documentElement.dataset.creatorAdmin;
+    }
+  });
+  watchCreator.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
 
   document.addEventListener("contextmenu", event => {
     if (isAdmin()) return;
     event.preventDefault();
-    showNotice("Clic droit désactivé. Accès réservé à l'espace Créateur.");
+    showNotice("Accès refusé : clic droit désactivé pour protéger le manuel.");
   }, true);
 
   document.addEventListener("keydown", event => {
@@ -55,6 +85,6 @@
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
-    showNotice("Outils de développement désactivés. Entrez le PIN administrateur dans l'espace Créateur.");
+    showNotice("Accès refusé : outils de développement réservés à l'administrateur.");
   }, true);
 })();
