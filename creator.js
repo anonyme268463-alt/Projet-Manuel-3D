@@ -1,458 +1,52 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import {
-  getFirestore, collection, getDocs, doc, setDoc, deleteDoc,
-  serverTimestamp, writeBatch, Timestamp
-} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-
-/*
- * GUIDE 3D — ESPACE CRÉATEUR
- * Le PIN côté navigateur est une simple barrière visuelle.
- * Il ne sécurise PAS les règles Firestore ni les appels directs à l'API.
- */
-const firebaseConfig = {
-  apiKey: "AIzaSyCG9nmgw8xm83xD6BlbXLyS8fCd41olX6s",
-  authDomain: "guide-3d.firebaseapp.com",
-  projectId: "guide-3d",
-  storageBucket: "guide-3d.firebasestorage.app",
-  messagingSenderId: "714446657255",
-  appId: "1:714446657255:web:7ed8061d9baf056200b442",
-  measurementId: "G-VJZ0W8ST2C"
-};
-
-const CREATOR_PIN = "0342";
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-const schemas = {
-  vehicles: {
-    label: "Véhicules",
-    description: "Gammes et modèles de vans.",
-    example: { name: "Flex 5", slug: "flex-5", description: "", active: true, order: 1 }
-  },
-  finishes: {
-    label: "Finitions",
-    description: "Coloris et finitions compatibles avec les gammes.",
-    example: {
-      name: "Alba", slug: "alba", label: "Noir & Chêne",
-      colors: ["#18191b", "#ba9163"], compatibleVehicleIds: [],
-      imageUrl: "", active: true, order: 1
-    }
-  },
-  workstations: {
-    label: "Postes de travail",
-    description: "Postes accessibles dans le parcours opérateur.",
-    example: {
-      name: "Cuisine", slug: "cuisine", description: "Assemblage du bloc cuisine",
-      icon: "🛠️", active: true, order: 1
-    }
-  },
-  procedures: {
-    label: "Procédures",
-    description: "Une procédure relie un véhicule, une finition et un poste.",
-    example: {
-      title: "Cuisine Flex 5 · Alba", description: "",
-      vehicleId: "", finishId: "", workstationId: "",
-      status: "draft", version: 1, coverImage: "", order: 1
-    }
-  },
-  chapters: {
-    label: "Chapitres",
-    description: "Nomenclature et étapes intégrées dans chaque chapitre.",
-    example: {
-      procedureId: "", title: "Préparation", description: "", order: 1, active: true,
-      bom: [{ code: "REF-001", name: "Exemple de pièce", quantity: 1 }],
-      steps: [{
-        title: "Étape 1",
-        instruction: "Décrire précisément l’opération validée.",
-        photos: [],
-        tools: [],
-        parts: ["REF-001"],
-        check: "Point de contrôle",
-        focus: []
-      }]
-    }
-  },
-  users: {
-    label: "Utilisateurs",
-    description: "Collection réservée à une future authentification.",
-    locked: true
-  }
-};
-
-let currentCollection = "vehicles";
-let records = [];
-let editingId = null;
-
-const $ = id => document.getElementById(id);
-const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({
-  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-}[c]));
-
-function setStatus(message, isError = false) {
-  $("creatorStatus").textContent = message;
-  $("creatorStatus").classList.toggle("error", isError);
+import {initializeApp,getApps,getApp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import {getFirestore,collection,getDocs,doc,setDoc,deleteDoc,serverTimestamp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js";
+import {OrbitControls} from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js";
+import {GLTFLoader} from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js";
+import {GLTFExporter} from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/exporters/GLTFExporter.js";
+const config={apiKey:"AIzaSyCG9nmgw8xm83xD6BlbXLyS8fCd41olX6s",authDomain:"guide-3d.firebaseapp.com",projectId:"guide-3d",storageBucket:"guide-3d.firebasestorage.app",messagingSenderId:"714446657255",appId:"1:714446657255:web:7ed8061d9baf056200b442",measurementId:"G-VJZ0W8ST2C"};
+const app=getApps().length?getApp():initializeApp(config),db=getFirestore(app),$=id=>document.getElementById(id);
+const cols=["vehicles","finishes","workstations","procedures","chapters","models3d","components3d","materials","assets"];
+const names={vehicles:"Véhicules",finishes:"Finitions",workstations:"Postes",procedures:"Guides",chapters:"Chapitres",models3d:"Modèles 3D",components3d:"Composants",materials:"Matériaux",assets:"Médias"};
+let col="vehicles",items=[],chosen=null,scene,camera,renderer,controls,group,selected=null,ray;
+const msg=(s,bad=false)=>{$("v3Status").textContent=s;$("v3Status").classList.toggle("bad",bad)};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function mount(){
+ const trigger=document.createElement("button");trigger.className="creator-open";trigger.textContent="✦ Créateur 3D";document.querySelector(".top-actions").prepend(trigger);
+ const panel=document.createElement("section");panel.id="v3Panel";panel.className="v3-panel";panel.hidden=true;
+ panel.innerHTML=`<header class="v3-head"><div><small>ATELIER DE CONCEPTION</small><h2>Créateur Guide 3D</h2><p>Construis tes données, tes modèles et tes procédures.</p></div><button id="v3Close">✕</button></header>
+ <nav class="v3-tabs"><button data-page="data" class="active">Données</button><button data-page="model">Éditeur 3D LEGO</button><button data-page="steps">Étapes</button></nav>
+ <section id="v3data"><div class="v3-toolbar"><div id="v3cols"></div><button id="v3refresh">Actualiser</button><button id="v3new">＋ Créer</button></div><div class="v3grid"><div id="v3list"></div><form id="v3form"><h3 id="v3formtitle">Nouvel élément</h3><label>ID<input id="v3id" required pattern="[A-Za-z0-9_-]+"></label><label>Nom / titre<input id="v3name" required></label><label>Description<textarea id="v3desc"></textarea></label><label>Autres propriétés (JSON)<textarea id="v3json" rows="10">{}</textarea></label><div class="v3actions"><button type="button" id="v3delete">Supprimer</button><button>Enregistrer</button></div></form></div></section>
+ <section id="v3model" hidden><div class="v3toolbar"><label>Modèle<input id="v3modelname" value="Nouveau modèle"></label><button data-shape="box">＋ Panneau</button><button data-shape="cylinder">＋ Cylindre</button><button data-shape="sphere">＋ Sphère</button><button id="v3export">Exporter GLB</button><label>Importer GLB/GLTF<input id="v3file" type="file" accept=".glb,.gltf"></label><button id="v3savemodel">Sauvegarder Firestore</button></div><div class="v3editor"><aside><h3>Pièce sélectionnée</h3><label>Nom<input id="objname"></label><label>Position X<input id="px" type="number" step=".01"></label><label>Position Y<input id="py" type="number" step=".01"></label><label>Position Z<input id="pz" type="number" step=".01"></label><label>Échelle X<input id="sx" type="number" step=".01"></label><label>Échelle Y<input id="sy" type="number" step=".01"></label><label>Échelle Z<input id="sz" type="number" step=".01"></label><label>Couleur<input id="objcolor" type="color" value="#b58a60"></label><button id="applyobj">Appliquer</button><button id="removeobj">Supprimer pièce</button><hr><div id="objlist"></div></aside><div id="v3canvas"><span>Glisser pour tourner · Molette pour zoomer · Cliquer sur une pièce pour la sélectionner</span></div></div><p class="v3note">Import GLB/GLTF pour prévisualisation locale. Pour publier un modèle importé, ajoute le fichier GLB au dépôt GitHub et référence son chemin dans le document Firestore. SolidWorks doit être exporté en GLB/GLTF ou converti depuis STEP.</p></section>
+ <section id="v3steps" hidden><form id="stepform"><h3>Ajouter une étape à un chapitre</h3><label>ID du chapitre<input id="stepchapter" required></label><label>Titre<input id="steptitle" required></label><label>Instruction<textarea id="stepinstruction" required></textarea></label><label>Pièces concernées (IDs séparés par virgules)<input id="stepfocus"></label><label>Outils<input id="steptools"></label><label>Point de contrôle<textarea id="stepcheck"></textarea></label><button>Ajouter l'étape</button></form><p>Les étapes sont stockées dans le tableau <code>steps</code> du document chapitre.</p></section>
+ <div id="v3Status">Prêt.</div><p class="v3warn">Prototype : les règles Firestore déterminent les droits réels. Ne conserve pas de données internes dans une base accessible publiquement.</p>`;
+ document.querySelector(".topbar").after(panel);
+ trigger.onclick=()=>{panel.hidden=false;load()};$("v3Close").onclick=()=>panel.hidden=true;
+ document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>page(b.dataset.page));
+ $("v3refresh").onclick=load;$("v3new").onclick=blank;$("v3form").onsubmit=save;$("v3delete").onclick=del;
+ document.querySelectorAll("[data-shape]").forEach(b=>b.onclick=()=>addShape(b.dataset.shape));
+ $("applyobj").onclick=apply;$("removeobj").onclick=remove;$("v3export").onclick=exportGLB;$("v3file").onchange=importGLB;$("v3savemodel").onclick=saveModel;$("stepform").onsubmit=addStep;
+ init3d();
 }
-
-function createInterface() {
-  const panel = document.createElement("section");
-  panel.id = "creatorPanel";
-  panel.className = "creator-panel";
-  panel.hidden = true;
-  panel.innerHTML = `
-    <header class="creator-header">
-      <div>
-        <p class="eyebrow">ADMINISTRATION DU GUIDE</p>
-        <h2>Espace Créateur</h2>
-        <p>Gérez les données du guide sans passer par la console Firebase.</p>
-      </div>
-      <button id="creatorClose" class="creator-close" aria-label="Fermer">✕</button>
-    </header>
-
-    <div class="creator-toolbar">
-      <nav id="creatorTabs" class="creator-tabs" aria-label="Collections"></nav>
-      <div class="creator-actions">
-        <button id="creatorExport" class="creator-secondary">Exporter JSON</button>
-        <button id="creatorImport" class="creator-secondary">Importer JSON</button>
-        <input id="creatorImportFile" type="file" accept="application/json,.json" hidden>
-        <button id="creatorAdd" class="creator-primary">＋ Ajouter</button>
-      </div>
-    </div>
-
-    <p id="creatorDescription" class="creator-description"></p>
-
-    <div class="creator-layout">
-      <section class="creator-list">
-        <div class="creator-list-head">
-          <strong>Enregistrements</strong>
-          <button id="creatorRefresh" class="creator-text-button">Actualiser ↻</button>
-        </div>
-        <div id="creatorRecords"></div>
-      </section>
-
-      <form id="creatorForm" class="creator-form">
-        <div class="creator-form-head">
-          <div><span class="eyebrow">FICHE DE DONNÉES</span><h3 id="creatorFormTitle">Nouvel élément</h3></div>
-          <span id="creatorIdLabel" class="creator-id">Nouvel ID</span>
-        </div>
-        <label for="creatorId">Identifiant (sans espace)</label>
-        <input id="creatorId" required pattern="[A-Za-z0-9_-]+" placeholder="ex. flex-5">
-        <label for="creatorJson">Données de l’enregistrement (JSON)</label>
-        <textarea id="creatorJson" spellcheck="false" rows="18"></textarea>
-        <p class="creator-help">
-          Les champs createdAt et updatedAt sont gérés automatiquement.
-          Les étapes et la nomenclature d’un chapitre sont stockées dans son document.
-        </p>
-        <div class="creator-form-actions">
-          <button type="button" id="creatorDelete" class="creator-danger" hidden>Supprimer</button>
-          <span></span>
-          <button type="submit" class="creator-primary">Enregistrer</button>
-        </div>
-      </form>
-    </div>
-
-    <div id="creatorStatus" class="creator-status" role="status">Initialisation…</div>
-    <p class="creator-warning">
-      Le PIN protège uniquement cet écran. Les règles Firestore déterminent les droits réels d’accès à la base.
-    </p>
-  `;
-  document.querySelector(".topbar").after(panel);
-
-  const trigger = document.createElement("button");
-  trigger.id = "creatorOpen";
-  trigger.className = "creator-open";
-  trigger.type = "button";
-  trigger.textContent = "⚙ Espace Créateur";
-  document.querySelector(".top-actions").prepend(trigger);
-
-  document.body.insertAdjacentHTML("beforeend", `
-    <div id="pinOverlay" class="pin-overlay" hidden>
-      <form id="pinForm" class="pin-card">
-        <div class="pin-lock">🔒</div>
-        <p class="eyebrow">ZONE ADMINISTRATEUR</p>
-        <h2>Espace Créateur</h2>
-        <p>Entrez le code à 4 chiffres pour continuer.</p>
-        <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]{4}"
-          maxlength="4" autocomplete="off" placeholder="••••" required>
-        <div id="pinError" class="pin-error"></div>
-        <div class="pin-actions">
-          <button type="button" id="pinCancel" class="creator-secondary">Annuler</button>
-          <button class="creator-primary" type="submit">Déverrouiller</button>
-        </div>
-      </form>
-    </div>
-  `);
-
-  $("creatorOpen").addEventListener("click", () => {
-    $("pinOverlay").hidden = false;
-    $("pinInput").value = "";
-    $("pinError").textContent = "";
-    $("pinInput").focus();
-  });
-  $("pinCancel").addEventListener("click", () => $("pinOverlay").hidden = true);
-  $("pinForm").addEventListener("submit", event => {
-    event.preventDefault();
-    if ($("pinInput").value !== CREATOR_PIN) {
-      $("pinError").textContent = "Code incorrect.";
-      $("pinInput").select();
-      return;
-    }
-    $("pinOverlay").hidden = true;
-    // Session administrateur : l'anti-debugging du site est désactivé.
-    window.__CREATOR_ADMIN__ = true;
-    document.documentElement.dataset.creatorAdmin = "true";
-    panel.hidden = false;
-    loadRecords();
-  });
-  $("creatorClose").addEventListener("click", () => panel.hidden = true);
-  $("creatorRefresh").addEventListener("click", loadRecords);
-  $("creatorAdd").addEventListener("click", () => createRecord());
-  $("creatorExport").addEventListener("click", exportBackup);
-  $("creatorImport").addEventListener("click", () => $("creatorImportFile").click());
-  $("creatorImportFile").addEventListener("change", importBackup);
-  $("creatorForm").addEventListener("submit", saveRecord);
-  $("creatorDelete").addEventListener("click", deleteRecord);
-}
-
-function renderTabs() {
-  const tabs = $("creatorTabs");
-  tabs.replaceChildren();
-
-  Object.entries(schemas).forEach(([key, config]) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = config.label;
-    button.className = key === currentCollection ? "active" : "";
-    button.disabled = Boolean(config.locked);
-    button.addEventListener("click", () => {
-      currentCollection = key;
-      editingId = null;
-      renderTabs();
-      loadRecords();
-    });
-    tabs.append(button);
-  });
-
-  $("creatorDescription").textContent = schemas[currentCollection].description;
-  $("creatorAdd").disabled = Boolean(schemas[currentCollection].locked);
-}
-
-async function loadRecords() {
-  renderTabs();
-  if (schemas[currentCollection].locked) {
-    records = [];
-    renderRecords();
-    setStatus("Collection réservée à une future authentification.");
-    return;
-  }
-
-  setStatus("Chargement des données…");
-  try {
-    const snapshot = await getDocs(collection(db, currentCollection));
-    records = snapshot.docs
-      .map(item => ({ id: item.id, data: item.data() }))
-      .sort((a, b) => Number(a.data.order ?? 9999) - Number(b.data.order ?? 9999));
-    renderRecords();
-    setStatus(`${records.length} enregistrement(s) chargé(s).`);
-    if (!editingId || !records.some(item => item.id === editingId)) createRecord(false);
-  } catch (error) {
-    console.error(error);
-    setStatus("Lecture Firestore impossible. Vérifiez les règles et la configuration : " + error.message, true);
-  }
-}
-
-function renderRecords() {
-  const host = $("creatorRecords");
-  host.replaceChildren();
-
-  if (!records.length) {
-    const empty = document.createElement("p");
-    empty.className = "creator-empty";
-    empty.textContent = "Aucun enregistrement pour le moment.";
-    host.append(empty);
-    return;
-  }
-
-  records.forEach(record => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "creator-record" + (record.id === editingId ? " active" : "");
-    const title = record.data.name || record.data.title || record.data.label || record.id;
-    button.innerHTML = `<strong>${escapeHtml(title)}</strong><small>${escapeHtml(record.id)}</small>`;
-    button.addEventListener("click", () => editRecord(record));
-    host.append(button);
-  });
-}
-
-function createRecord(showMessage = true) {
-  editingId = null;
-  $("creatorFormTitle").textContent = "Nouvel élément";
-  $("creatorIdLabel").textContent = "Nouvel ID";
-  $("creatorId").disabled = false;
-  $("creatorId").value = "";
-  $("creatorJson").value = JSON.stringify(schemas[currentCollection].example ?? {}, null, 2);
-  $("creatorDelete").hidden = true;
-  renderRecords();
-  if (showMessage) setStatus("Nouvel enregistrement prêt.");
-}
-
-function editRecord(record) {
-  editingId = record.id;
-  $("creatorFormTitle").textContent = "Modifier l’élément";
-  $("creatorIdLabel").textContent = record.id;
-  $("creatorId").value = record.id;
-  $("creatorId").disabled = true;
-  $("creatorJson").value = JSON.stringify(record.data, null, 2);
-  $("creatorDelete").hidden = false;
-  renderRecords();
-  setStatus("Modification de " + record.id);
-}
-
-async function saveRecord(event) {
-  event.preventDefault();
-  if (schemas[currentCollection].locked) return;
-
-  const id = $("creatorId").value.trim();
-  if (!/^[A-Za-z0-9_-]+$/.test(id)) {
-    setStatus("Identifiant invalide : lettres, chiffres, tirets et underscores uniquement.", true);
-    return;
-  }
-
-  let data;
-  try {
-    data = JSON.parse($("creatorJson").value);
-  } catch (error) {
-    setStatus("JSON invalide : " + error.message, true);
-    return;
-  }
-  if (!data || Array.isArray(data) || typeof data !== "object") {
-    setStatus("Le contenu doit être un objet JSON.", true);
-    return;
-  }
-
-  const existing = records.find(item => item.id === id);
-  const payload = {
-    ...data,
-    updatedAt: serverTimestamp(),
-    ...(existing?.data.createdAt ? {} : { createdAt: serverTimestamp() }),
-    schemaVersion: 1
-  };
-
-  try {
-    await setDoc(doc(db, currentCollection, id), payload);
-    editingId = id;
-    setStatus("Enregistrement sauvegardé dans Firestore.");
-    await loadRecords();
-    const saved = records.find(item => item.id === id);
-    if (saved) editRecord(saved);
-  } catch (error) {
-    console.error(error);
-    setStatus("Échec de la sauvegarde : " + error.message, true);
-  }
-}
-
-async function deleteRecord() {
-  if (!editingId || !confirm(`Supprimer définitivement « ${editingId} » ?`)) return;
-  try {
-    await deleteDoc(doc(db, currentCollection, editingId));
-    editingId = null;
-    await loadRecords();
-    createRecord(false);
-    setStatus("Enregistrement supprimé.");
-  } catch (error) {
-    console.error(error);
-    setStatus("Échec de la suppression : " + error.message, true);
-  }
-}
-
-// Convertit les Timestamp Firestore en marqueurs JSON restaurables.
-function encodeForJson(value) {
-  if (value instanceof Timestamp) return { __firestoreTimestamp: value.toDate().toISOString() };
-  if (Array.isArray(value)) return value.map(encodeForJson);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encodeForJson(item)]));
-  }
-  return value;
-}
-function decodeFromJson(value) {
-  if (Array.isArray(value)) return value.map(decodeFromJson);
-  if (value && typeof value === "object") {
-    if (typeof value.__firestoreTimestamp === "string") {
-      return Timestamp.fromDate(new Date(value.__firestoreTimestamp));
-    }
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, decodeFromJson(item)]));
-  }
-  return value;
-}
-
-async function exportBackup() {
-  try {
-    const backup = {
-      format: "guide-3d-backup",
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      collections: {}
-    };
-    for (const key of Object.keys(schemas)) {
-      if (schemas[key].locked) continue;
-      const snapshot = await getDocs(collection(db, key));
-      backup.collections[key] = snapshot.docs.map(item => ({
-        id: item.id,
-        data: encodeForJson(item.data())
-      }));
-    }
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `guide-3d-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setStatus("Sauvegarde JSON exportée.");
-  } catch (error) {
-    console.error(error);
-    setStatus("Export impossible : " + error.message, true);
-  }
-}
-
-async function importBackup(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  if (!confirm("Importer cette sauvegarde ? Les documents portant les mêmes identifiants seront remplacés. Les documents absents du fichier seront conservés.")) {
-    event.target.value = "";
-    return;
-  }
-
-  try {
-    const backup = JSON.parse(await file.text());
-    if (backup.format !== "guide-3d-backup" || !backup.collections) {
-      throw new Error("Fichier de sauvegarde Guide-3D non reconnu.");
-    }
-
-    const entries = [];
-    for (const [key, items] of Object.entries(backup.collections)) {
-      if (!schemas[key] || schemas[key].locked || !Array.isArray(items)) continue;
-      for (const item of items) {
-        if (!/^[A-Za-z0-9_-]+$/.test(item.id) || !item.data || typeof item.data !== "object") {
-          throw new Error("Document invalide dans la collection " + key);
-        }
-        entries.push({ key, id: item.id, data: decodeFromJson(item.data) });
-      }
-    }
-    if (entries.length > 450) throw new Error("Sauvegarde trop volumineuse pour une importation unique (maximum pratique : 450 documents).");
-
-    const batch = writeBatch(db);
-    for (const item of entries) {
-      batch.set(doc(db, item.key, item.id), { ...item.data, restoredAt: serverTimestamp() });
-    }
-    if (entries.length) await batch.commit();
-    setStatus(`${entries.length} document(s) importé(s). Les documents absents du fichier ne sont pas supprimés.`);
-    await loadRecords();
-  } catch (error) {
-    console.error(error);
-    setStatus("Import impossible : " + error.message, true);
-  } finally {
-    event.target.value = "";
-  }
-}
-
-createInterface();
+function page(p){$("v3data").hidden=p!=="data";$("v3model").hidden=p!=="model";$("v3steps").hidden=p!=="steps";document.querySelectorAll("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===p));if(p==="model")resize();}
+function renderCols(){const h=$("v3cols");h.replaceChildren();cols.forEach(c=>{const b=document.createElement("button");b.textContent=names[c];b.className=c===col?"active":"";b.onclick=()=>{col=c;chosen=null;renderCols();load()};h.append(b)})}
+async function load(){renderCols();msg("Lecture Firestore…");try{const s=await getDocs(collection(db,col));items=s.docs.map(d=>({id:d.id,data:d.data()}));renderList();blank();msg(`${items.length} enregistrement(s) dans ${names[col]}.`)}catch(e){console.error(e);msg("Erreur Firestore : "+e.message,true)}}
+function renderList(){const h=$("v3list");h.replaceChildren();items.forEach(x=>{const b=document.createElement("button");b.className="v3item";b.innerHTML=`<b>${esc(x.data.name||x.data.title||x.id)}</b><small>${esc(x.id)}</small>`;b.onclick=()=>edit(x);h.append(b)})}
+function blank(){chosen=null;$("v3formtitle").textContent="Nouvel élément";$("v3id").disabled=false;$("v3id").value="";$("v3name").value="";$("v3desc").value="";$("v3json").value="{}";$("v3delete").hidden=true}
+function edit(x){chosen=x.id;$("v3formtitle").textContent="Modifier "+x.id;$("v3id").value=x.id;$("v3id").disabled=true;$("v3name").value=x.data.name||x.data.title||"";$("v3desc").value=x.data.description||"";const d={...x.data};delete d.name;delete d.title;delete d.description;delete d.createdAt;delete d.updatedAt;$("v3json").value=JSON.stringify(d,null,2);$("v3delete").hidden=false}
+async function save(e){e.preventDefault();let extra;try{extra=JSON.parse($("v3json").value||"{}")}catch(x){return msg("JSON invalide : "+x.message,true)}const id=$("v3id").value.trim();try{await setDoc(doc(db,col,id),{...extra,name:$("v3name").value,description:$("v3desc").value,updatedAt:serverTimestamp(),...(chosen?{}:{createdAt:serverTimestamp()})},{merge:true});await load();msg("Enregistrement sauvegardé.")}catch(x){console.error(x);msg(x.message,true)}}
+async function del(){if(!chosen||!confirm("Supprimer cet enregistrement ?"))return;try{await deleteDoc(doc(db,col,chosen));await load()}catch(e){msg(e.message,true)}}
+function init3d(){const host=$("v3canvas");scene=new THREE.Scene();scene.background=new THREE.Color("#eaf0f4");camera=new THREE.PerspectiveCamera(45,1,.01,1000);camera.position.set(4,3,5);renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));host.append(renderer.domElement);controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;scene.add(new THREE.HemisphereLight(0xffffff,0x8090a0,2));const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(4,8,5);scene.add(light);scene.add(new THREE.GridHelper(10,20));group=new THREE.Group();scene.add(group);ray=new THREE.Raycaster();renderer.domElement.addEventListener("click",pick);window.addEventListener("resize",resize);animate()}
+function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}
+function resize(){const h=$("v3canvas"),w=h.clientWidth,ht=h.clientHeight;if(!w||!ht)return;renderer.setSize(w,ht);camera.aspect=w/ht;camera.updateProjectionMatrix()}
+function pick(e){const r=renderer.domElement.getBoundingClientRect(),p=new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(p,camera);const hit=ray.intersectObjects(group.children,true)[0];if(hit){let o=hit.object;while(o.parent!==group&&o.parent)o=o.parent;select(o)}}
+function addShape(t){const geo=t==="box"?new THREE.BoxGeometry(1,1,.12):t==="cylinder"?new THREE.CylinderGeometry(.5,.5,1,32):new THREE.SphereGeometry(.5,24,16);const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:"#b58a60",roughness:.7}));m.name=`${t}-${group.children.length+1}`;m.position.y=.5;group.add(m);select(m);listObjects()}
+function select(o){selected=o;$("objname").value=o.name;$("px").value=o.position.x;$("py").value=o.position.y;$("pz").value=o.position.z;$("sx").value=o.scale.x;$("sy").value=o.scale.y;$("sz").value=o.scale.z;$("objcolor").value="#"+o.material.color.getHexString()}
+function apply(){if(!selected)return;selected.name=$("objname").value;selected.position.set(+$("px").value,+$("py").value,+$("pz").value);selected.scale.set(Math.max(.01,+$("sx").value),Math.max(.01,+$("sy").value),Math.max(.01,+$("sz").value));selected.material.color.set($("objcolor").value);listObjects()}
+function remove(){if(!selected)return;group.remove(selected);selected.geometry?.dispose();selected.material?.dispose();selected=null;listObjects()}
+function listObjects(){const h=$("objlist");h.replaceChildren();group.children.forEach(o=>{const b=document.createElement("button");b.textContent=o.name;b.onclick=()=>select(o);h.append(b)})}
+async function saveModel(){const id=prompt("Identifiant du modèle :","modele-"+Date.now());if(!id)return;const data={name:$("v3modelname").value,unit:"m",objects:group.children.map(o=>({name:o.name,position:o.position.toArray(),rotation:o.rotation.toArray(),scale:o.scale.toArray(),color:"#"+o.material.color.getHexString(),geometry:o.geometry.type})),updatedAt:serverTimestamp()};try{await setDoc(doc(db,"models3d",id),data,{merge:true});msg("Modèle paramétrique sauvegardé dans Firestore.")}catch(e){msg(e.message,true)}}
+function exportGLB(){new GLTFExporter().parse(group,result=>{const blob=new Blob([result],{type:"model/gltf-binary"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=($("v3modelname").value||"modele")+".glb";a.click();URL.revokeObjectURL(url);msg("GLB exporté.")},{binary:true})}
+function importGLB(e){const f=e.target.files?.[0];if(!f)return;const url=URL.createObjectURL(f);new GLTFLoader().load(url,g=>{group.add(g.scene);selected=g.scene;listObjects();msg("Modèle importé pour prévisualisation locale. Exportez-le en GLB puis ajoutez-le au dépôt pour le publier.");URL.revokeObjectURL(url)},undefined,x=>{msg("Import impossible : "+x.message,true);URL.revokeObjectURL(url)});e.target.value=""}
+async function addStep(e){e.preventDefault();const id=$("stepchapter").value.trim();try{const ref=doc(db,"chapters",id),snap=await getDocs(collection(db,"chapters")),d=snap.docs.find(x=>x.id===id);if(!d)throw Error("Chapitre introuvable");const old=d.data(),step={title:$("steptitle").value,instruction:$("stepinstruction").value,focus:$("stepfocus").value.split(",").map(x=>x.trim()).filter(Boolean),tools:$("steptools").value.split(",").map(x=>x.trim()).filter(Boolean),check:$("stepcheck").value,photos:[]};await setDoc(ref,{...old,steps:[...(old.steps||[]),step],updatedAt:serverTimestamp()});$("stepform").reset();msg("Étape ajoutée au chapitre.")}catch(x){console.error(x);msg(x.message,true)}}
+mount();
