@@ -8,41 +8,101 @@ const firebaseConfig = {
   projectId: "guide-3d",
   storageBucket: "guide-3d.firebasestorage.app",
   messagingSenderId: "714446657255",
-  appId: "1:714446657255:web:7ed8061d9baf056200b442"
+  appId: "1:714446657255:web:7ed8061d9baf056200b442",
+  measurementId: "G-VJZ0W8ST2C"
 };
+
 const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const $ = id => document.getElementById(id);
-const state = { index: 0, checked: new Set(), viewer: null, chapters: demoChapters, sequence: demoSequence, firstStep: demoFirstStep };
+
+const state = {
+  index: 0,
+  checked: new Set(),
+  viewer: null,
+  chapters: Array.isArray(demoChapters) ? demoChapters : [],
+  sequence: Array.isArray(demoSequence) ? demoSequence : [],
+  firstStep: typeof demoFirstStep === 'function' ? demoFirstStep : (() => 0),
+  source: 'demo'
+};
+
 const chapterNav = $('chapterList');
 
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+function safeText(value, fallback = '') {
+  return value === null || value === undefined ? fallback : String(value);
+}
 function normal(value) {
-  return String(value ?? '').trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return safeText(value).trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
-function sortByOrder(a, b) { return (Number(a.order) || 0) - (Number(b.order) || 0); }
-function list(value) { return Array.isArray(value) ? value : []; }
+function sortByOrder(a, b) {
+  return (Number(a.order) || 0) - (Number(b.order) || 0);
+}
+function setText(id, value) {
+  const element = $(id);
+  if (element) element.textContent = safeText(value);
+}
+function setDisabled(id, value) {
+  const element = $(id);
+  if (element) element.disabled = Boolean(value);
+}
+function reportStatus(message, level = 'info') {
+  const count = $('chapterCount');
+  if (count && level === 'loading') count.textContent = 'CHARGEMENT…';
+  const description = $('stepDescription');
+  if (description && level === 'error') {
+    description.textContent = `${message} — Les données de démonstration restent disponibles.`;
+  }
+  console[level === 'error' ? 'error' : 'log'](`[Guide 3D] ${message}`);
+}
 
-function buildChapters(raw) {
-  return raw.filter(c => c.active !== false).sort(sortByOrder).map((c, i) => ({
-    id: c.id,
-    title: c.title || c.name || `Chapitre ${i + 1}`,
-    subtitle: c.description || 'Procédure de montage',
-    items: list(c.bom || c.items).map(x =>
-      Array.isArray(x) ? x : [x.code || '', x.name || x.designation || '', x.quantity ?? x.qty ?? 1]
-    ),
-    steps: list(c.steps).map(s => ({
-      title: s.title || 'Étape sans titre',
-      description: s.instruction || s.description || '',
-      focus: list(s.focus),
-      check: s.check || s.checkpoint || '',
-      parts: list(s.parts),
-      tools: list(s.tools),
-      photos: list(s.photos)
+function normalizeDemoChapter(chapter, index) {
+  return {
+    id: safeText(chapter?.id, `demo-${index}`),
+    title: safeText(chapter?.title || chapter?.name, `Chapitre ${index + 1}`),
+    subtitle: safeText(chapter?.subtitle || chapter?.description, 'Procédure de démonstration'),
+    items: safeArray(chapter?.items).map(item => Array.isArray(item)
+      ? [safeText(item[0]), safeText(item[1]), item[2] ?? 1]
+      : [safeText(item?.code), safeText(item?.name || item?.designation), item?.quantity ?? 1]),
+    steps: safeArray(chapter?.steps).map(step => ({
+      title: safeText(step?.title, 'Étape sans titre'),
+      description: safeText(step?.instruction || step?.description),
+      focus: safeArray(step?.focus),
+      check: safeText(step?.check || step?.checkpoint),
+      parts: safeArray(step?.parts),
+      tools: safeArray(step?.tools),
+      photos: safeArray(step?.photos)
     }))
-  })).filter(c => c.steps.length);
+  };
 }
 
-function setProcedureData(chapters) {
+function buildFirestoreChapters(rawChapters) {
+  return rawChapters
+    .filter(chapter => chapter && chapter.active !== false)
+    .sort(sortByOrder)
+    .map((chapter, index) => ({
+      id: safeText(chapter.id, `chapter-${index}`),
+      title: safeText(chapter.title || chapter.name, `Chapitre ${index + 1}`),
+      subtitle: safeText(chapter.description || chapter.subtitle, 'Procédure de montage'),
+      items: safeArray(chapter.bom || chapter.items).map(item => Array.isArray(item)
+        ? [safeText(item[0]), safeText(item[1]), item[2] ?? 1]
+        : [safeText(item?.code), safeText(item?.name || item?.designation), item?.quantity ?? item?.qty ?? 1]),
+      steps: safeArray(chapter.steps).map(step => ({
+        title: safeText(step?.title, 'Étape sans titre'),
+        description: safeText(step?.instruction || step?.description),
+        focus: safeArray(step?.focus),
+        check: safeText(step?.check || step?.checkpoint),
+        parts: safeArray(step?.parts),
+        tools: safeArray(step?.tools),
+        photos: safeArray(step?.photos)
+      }))
+    }))
+    .filter(chapter => chapter.steps.length > 0);
+}
+
+function setProcedureData(chapters, source = 'demo') {
   state.chapters = chapters;
   state.sequence = chapters.flatMap((chapter, chapterIndex) =>
     chapter.steps.map((step, stepIndex) => ({ ...step, chapterIndex, stepIndex }))
@@ -50,29 +110,49 @@ function setProcedureData(chapters) {
   state.firstStep = index => state.sequence.findIndex(step => step.chapterIndex === index);
   state.index = 0;
   state.checked.clear();
+  state.source = source;
+
+  const count = $('chapterCount');
+  if (count) count.textContent = `${chapters.length} MODULES${source === 'demo' ? ' · DÉMO' : ' · FIRESTORE'}`;
+
   renderNavigation();
-  renderStep();
+  if (state.sequence.length) {
+    renderStep();
+  } else {
+    setText('stepTitle', 'Aucune étape disponible');
+    setText('stepDescription', 'La procédure sélectionnée ne contient pas encore d’étapes.');
+    setText('stepParts', 'Aucune pièce renseignée');
+    setText('stepCheck', 'Aucun point de contrôle renseigné.');
+    setDisabled('prev', true);
+    setDisabled('next', true);
+  }
 }
 
 function renderNavigation() {
+  if (!chapterNav) return;
   chapterNav.replaceChildren();
-  state.chapters.forEach((chapter, i) => {
+
+  state.chapters.forEach((chapter, index) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'chapter-button';
     button.innerHTML = '<span class="chapter-index"></span><span class="chapter-text"><strong></strong><small></small></span><span class="chapter-chevron">›</span>';
-    button.querySelector('.chapter-index').textContent = String(i + 1).padStart(2, '0');
+    button.querySelector('.chapter-index').textContent = String(index + 1).padStart(2, '0');
     button.querySelector('strong').textContent = chapter.title;
     button.querySelector('small').textContent = `${chapter.steps.length} étape(s) · ${chapter.subtitle}`;
-    button.addEventListener('click', () => openSheet(i));
+    button.addEventListener('click', () => openSheet(index));
     chapterNav.append(button);
   });
-  $('chapterCount').textContent = `${state.chapters.length} MODULES`;
 }
 
-function currentStep() { return state.sequence[state.index]; }
+function currentStep() {
+  return state.sequence[state.index] || null;
+}
 
 function renderPhotos(photos) {
+  const stepCheck = $('stepCheck');
+  if (!stepCheck?.closest('.detail-card')) return;
+
   let panel = $('stepPhotos');
   if (!panel) {
     panel = document.createElement('div');
@@ -85,179 +165,287 @@ function renderPhotos(photos) {
     content.id = 'stepPhotoContent';
     content.className = 'detail-content';
     panel.append(label, content);
-    $('stepCheck').closest('.detail-card').after(panel);
+    stepCheck.closest('.detail-card').after(panel);
   }
+
   const content = $('stepPhotoContent');
+  if (!content) return;
   content.replaceChildren();
-  const valid = photos.map(item => typeof item === 'string' ? { url: item } : item).filter(item => item && (item.url || item.src));
-  panel.hidden = valid.length === 0;
-  valid.forEach(item => {
-    const img = document.createElement('img');
-    img.src = item.url || item.src;
-    img.alt = item.caption || 'Photo de l’étape';
-    img.loading = 'lazy';
-    img.style.cssText = 'width:100%;max-height:230px;object-fit:contain;border-radius:8px;margin:6px 0;background:#f1f4f6';
-    content.append(img);
-    if (item.caption) {
+
+  const validPhotos = safeArray(photos).map(photo =>
+    typeof photo === 'string' ? { url: photo } : photo
+  ).filter(photo => photo && (photo.url || photo.src));
+
+  panel.hidden = validPhotos.length === 0;
+  validPhotos.forEach(photo => {
+    const image = document.createElement('img');
+    image.src = photo.url || photo.src;
+    image.alt = safeText(photo.caption, 'Photo de l’étape');
+    image.loading = 'lazy';
+    image.style.cssText = 'width:100%;max-height:230px;object-fit:contain;border-radius:8px;margin:6px 0;background:#f1f4f6';
+    content.append(image);
+
+    if (photo.caption) {
       const caption = document.createElement('small');
-      caption.textContent = item.caption;
+      caption.textContent = photo.caption;
       content.append(caption);
     }
   });
 }
 
 function renderStep() {
-  if (!state.sequence.length) return;
   const step = currentStep();
+  if (!step) return;
+
   const chapter = state.chapters[step.chapterIndex];
-  $('stepBadge').textContent = `ÉTAPE ${String(state.index + 1).padStart(2, '0')} / ${String(state.sequence.length).padStart(2, '0')}`;
-  $('progressBar').style.width = `${(state.index + 1) / state.sequence.length * 100}%`;
-  $('chapterKicker').textContent = `CHAPITRE ${String(step.chapterIndex + 1).padStart(2, '0')} · ${chapter.title.toUpperCase()}`;
-  $('stepTitle').textContent = step.title;
-  $('viewerTitle').textContent = chapter.title;
-  $('stepDescription').textContent = step.description;
+  const focus = safeArray(step.focus);
+  const partsList = safeArray(step.parts);
+  const photos = safeArray(step.photos);
+
+  setText('stepBadge', `ÉTAPE ${String(state.index + 1).padStart(2, '0')} / ${String(state.sequence.length).padStart(2, '0')}`);
+  const progress = $('progressBar');
+  if (progress) progress.style.width = `${(state.index + 1) / state.sequence.length * 100}%`;
+
+  setText('chapterKicker', `CHAPITRE ${String(step.chapterIndex + 1).padStart(2, '0')} · ${safeText(chapter?.title).toUpperCase()}`);
+  setText('stepTitle', step.title);
+  setText('viewerTitle', chapter?.title || 'Guide de montage');
+  setText('stepDescription', step.description);
 
   const partNames = {
-    sideL: 'Panneau gauche', sideR: 'Panneau droit', bottom: 'Panneau inférieur',
-    back: 'Panneau arrière', top: 'Plateau supérieur', sink: 'Évier',
-    hob: 'Plaques', drawer: 'Tiroir', shutter: 'Volet',
-    network: 'Compartiment technique', hot: 'Eau chaude', cold: 'Eau froide', gas: 'Gaz'
+    sideL: 'Panneau gauche',
+    sideR: 'Panneau droit',
+    bottom: 'Panneau inférieur',
+    back: 'Panneau arrière',
+    top: 'Plateau supérieur',
+    sink: 'Évier',
+    hob: 'Plaques',
+    drawer: 'Tiroir',
+    shutter: 'Volet',
+    network: 'Compartiment technique',
+    hot: 'Eau chaude',
+    cold: 'Eau froide',
+    gas: 'Gaz'
   };
-  const parts = step.parts.length ? step.parts.join(' · ') : step.focus.map(id => partNames[id] || id).join(' · ');
-  $('stepParts').textContent = parts || 'Ensemble du meuble';
-  $('partHint').textContent = step.focus.length ? `${step.focus.length} élément(s) mis en évidence` : 'Vue générale du sous-ensemble';
-  $('stepCheck').textContent = step.check || 'Aucun point de contrôle renseigné.';
-  $('prev').disabled = state.index === 0;
-  $('next').disabled = state.index === state.sequence.length - 1;
 
-  [...chapterNav.children].forEach((button, i) => {
-    button.classList.toggle('active', i === step.chapterIndex);
-    if (i === step.chapterIndex) button.setAttribute('aria-current', 'step');
-    else button.removeAttribute('aria-current');
-  });
-  state.viewer?.setFocus(step.focus);
-  renderPhotos(step.photos);
+  // FIX: les données de démonstration ne définissent pas toujours step.parts.
+  const parts = partsList.length
+    ? partsList.map(part => typeof part === 'string' ? part : safeText(part?.name || part?.label)).filter(Boolean).join(' · ')
+    : focus.map(id => partNames[id] || id).join(' · ');
+
+  setText('stepParts', parts || 'Ensemble du meuble');
+  setText('partHint', focus.length ? `${focus.length} élément(s) mis en évidence` : 'Vue générale du sous-ensemble');
+  setText('stepCheck', step.check || 'Aucun point de contrôle renseigné.');
+
+  setDisabled('prev', state.index === 0);
+  setDisabled('next', state.index === state.sequence.length - 1);
+
+  if (chapterNav) {
+    [...chapterNav.children].forEach((button, index) => {
+      button.classList.toggle('active', index === step.chapterIndex);
+      if (index === step.chapterIndex) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    });
+  }
+
+  try {
+    state.viewer?.setFocus(focus);
+  } catch (error) {
+    console.warn('[Guide 3D] Mise en évidence 3D indisponible :', error);
+  }
+
+  renderPhotos(photos);
 }
 
 function navigate(delta) {
-  const next = state.index + delta;
-  if (next < 0 || next >= state.sequence.length) return;
+  const nextIndex = state.index + delta;
+  if (nextIndex < 0 || nextIndex >= state.sequence.length) return;
+
   const oldChapter = state.sequence[state.index].chapterIndex;
-  const newChapter = state.sequence[next].chapterIndex;
-  if (newChapter !== oldChapter) { openSheet(newChapter); return; }
-  state.index = next;
+  const newChapter = state.sequence[nextIndex].chapterIndex;
+  if (newChapter !== oldChapter) {
+    openSheet(newChapter);
+    return;
+  }
+
+  state.index = nextIndex;
   renderStep();
 }
 
 function openSheet(index) {
   const chapter = state.chapters[index];
-  $('sheetChapter').textContent = `CHAPITRE ${String(index + 1).padStart(2, '0')} / ${state.chapters.length} · FICHE DE PRÉPARATION`;
-  $('sheetTitle').textContent = chapter.title;
+  if (!chapter) return;
+
+  setText('sheetChapter', `CHAPITRE ${String(index + 1).padStart(2, '0')} / ${state.chapters.length} · FICHE DE PRÉPARATION`);
+  setText('sheetTitle', chapter.title);
+
   const body = $('bomRows');
+  if (!body) return;
   body.replaceChildren();
-  chapter.items.forEach(([code, name, qty]) => {
+
+  safeArray(chapter.items).forEach(item => {
+    const [code, name, quantity] = Array.isArray(item)
+      ? item
+      : [item?.code, item?.name || item?.designation, item?.quantity ?? item?.qty ?? 1];
+
     const row = document.createElement('tr');
     const checkbox = document.createElement('input');
+    const key = `${chapter.id}:${safeText(code)}`;
     checkbox.type = 'checkbox';
-    checkbox.checked = state.checked.has(`${chapter.id}:${code}`);
-    checkbox.setAttribute('aria-label', `Vérifier ${name}`);
+    checkbox.checked = state.checked.has(key);
+    checkbox.setAttribute('aria-label', `Vérifier ${safeText(name)}`);
     checkbox.addEventListener('change', () => {
-      const key = `${chapter.id}:${code}`;
       if (checkbox.checked) state.checked.add(key);
       else state.checked.delete(key);
       updateSheet(index);
     });
-    const cell = document.createElement('td');
-    cell.append(checkbox);
-    row.append(cell);
-    [code, name, qty].forEach(value => {
-      const td = document.createElement('td');
-      td.textContent = String(value ?? '');
-      row.append(td);
+
+    const checkCell = document.createElement('td');
+    checkCell.append(checkbox);
+    row.append(checkCell);
+
+    [code, name, quantity].forEach(value => {
+      const cell = document.createElement('td');
+      cell.textContent = safeText(value);
+      row.append(cell);
     });
     body.append(row);
   });
-  $('startChapter').onclick = () => {
-    state.index = state.firstStep(index);
-    $('sheet').hidden = true;
-    renderStep();
-  };
-  $('sheet').hidden = false;
+
+  const startButton = $('startChapter');
+  if (startButton) {
+    startButton.onclick = () => {
+      const first = state.firstStep(index);
+      if (first < 0) return;
+      state.index = first;
+      const sheet = $('sheet');
+      if (sheet) sheet.hidden = true;
+      renderStep();
+    };
+  }
+
+  const sheet = $('sheet');
+  if (sheet) sheet.hidden = false;
   updateSheet(index);
-  $('closeSheet').focus();
+  $('closeSheet')?.focus();
 }
 
 function updateSheet(index) {
   const chapter = state.chapters[index];
-  const count = chapter.items.filter(([code]) => state.checked.has(`${chapter.id}:${code}`)).length;
-  $('sheetStatus').textContent = `${count} / ${chapter.items.length} références vérifiées`;
-  $('sheetProgress').style.width = `${chapter.items.length ? count / chapter.items.length * 100 : 100}%`;
-  $('startChapter').disabled = count !== chapter.items.length;
+  if (!chapter) return;
+
+  const items = safeArray(chapter.items);
+  const count = items.filter(item => {
+    const code = Array.isArray(item) ? item[0] : item?.code;
+    return state.checked.has(`${chapter.id}:${safeText(code)}`);
+  }).length;
+
+  setText('sheetStatus', `${count} / ${items.length} références vérifiées`);
+  const progress = $('sheetProgress');
+  if (progress) progress.style.width = `${items.length ? count / items.length * 100 : 100}%`;
+  setDisabled('startChapter', count !== items.length || state.firstStep(index) < 0);
 }
 
 async function loadPublishedProcedure(config) {
-  const [procedureSnap, chapterSnap] = await Promise.all([
+  const [proceduresSnapshot, chaptersSnapshot] = await Promise.all([
     getDocs(collection(db, 'procedures')),
     getDocs(collection(db, 'chapters'))
   ]);
-  const procedures = procedureSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const procedure = procedures
-    .filter(p => p.status === 'published'
-      && normal(p.vehicleId) === normal(config.model)
-      && normal(p.finishId) === normal(config.finish)
-      && normal(p.workstationId) === normal(config.station))
+
+  const procedures = proceduresSnapshot.docs.map(document => ({
+    id: document.id,
+    ...document.data()
+  }));
+
+  const selected = procedures
+    .filter(procedure =>
+      procedure.status === 'published' &&
+      normal(procedure.vehicleId) === normal(config.model) &&
+      normal(procedure.finishId) === normal(config.finish) &&
+      normal(procedure.workstationId) === normal(config.station)
+    )
     .sort(sortByOrder)[0];
 
-  if (!procedure) return false;
-  const chapters = buildChapters(chapterSnap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(c => c.procedureId === procedure.id));
+  if (!selected) return false;
 
+  const rawChapters = chaptersSnapshot.docs
+    .map(document => ({ id: document.id, ...document.data() }))
+    .filter(chapter => chapter.procedureId === selected.id);
+
+  const chapters = buildFirestoreChapters(rawChapters);
   if (!chapters.length) return false;
-  setProcedureData(chapters);
+
+  setProcedureData(chapters, 'firestore');
+
   const summary = $('selectedConfiguration');
-  if (summary) summary.textContent = `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · ${procedure.title || 'Guide publié'}`;
+  if (summary) {
+    summary.textContent = `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · ${selected.title || 'Guide publié'}`;
+  }
   return true;
 }
 
 async function applyConfiguration(config) {
   if (!config) return;
-  $('chapterCount').textContent = 'CHARGEMENT…';
+  reportStatus('Chargement de la procédure…', 'loading');
+
   try {
-    const loaded = await loadPublishedProcedure(config);
-    if (loaded) return;
-    setProcedureData(demoChapters);
-    $('chapterCount').textContent = `${demoChapters.length} MODULES · DÉMO`;
-    $('stepDescription').textContent += ' (Aucune procédure publiée ne correspond à cette configuration : démonstration affichée.)';
+    const found = await loadPublishedProcedure(config);
+    if (found) {
+      reportStatus('Procédure publiée chargée depuis Firestore.');
+      return;
+    }
+
+    setProcedureData(state.chapters === demoChapters ? state.chapters : demoChapters, 'demo');
+    const summary = $('selectedConfiguration');
+    if (summary) {
+      summary.textContent = `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · Démonstration`;
+    }
+    reportStatus('Aucune procédure publiée ne correspond à cette configuration. Démonstration affichée.');
   } catch (error) {
-    console.error('Chargement Firestore impossible', error);
-    setProcedureData(demoChapters);
-    $('chapterCount').textContent = `${demoChapters.length} MODULES · DÉMO`;
+    console.error('[Guide 3D] Lecture Firestore impossible :', error);
+    setProcedureData(demoChapters.map(normalizeDemoChapter), 'demo');
+    reportStatus(`Lecture Firestore impossible (${error.code || 'erreur'}).`, 'error');
   }
 }
 
-$('prev').addEventListener('click', () => navigate(-1));
-$('next').addEventListener('click', () => navigate(1));
-$('openSheet').addEventListener('click', () => openSheet(currentStep().chapterIndex));
-$('closeSheet').addEventListener('click', () => $('sheet').hidden = true);
-$('sheet').addEventListener('click', event => { if (event.target === $('sheet')) $('sheet').hidden = true; });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') $('sheet').hidden = true; });
+$('prev')?.addEventListener('click', () => navigate(-1));
+$('next')?.addEventListener('click', () => navigate(1));
+$('openSheet')?.addEventListener('click', () => {
+  const step = currentStep();
+  if (step) openSheet(step.chapterIndex);
+});
+$('closeSheet')?.addEventListener('click', () => {
+  const sheet = $('sheet');
+  if (sheet) sheet.hidden = true;
+});
+$('sheet')?.addEventListener('click', event => {
+  if (event.target === $('sheet')) $('sheet').hidden = true;
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && $('sheet')) $('sheet').hidden = true;
+});
 
-renderNavigation();
-renderStep();
+setProcedureData(demoChapters.map(normalizeDemoChapter), 'demo');
 window.addEventListener('guide3d:configuration', event => applyConfiguration(event.detail));
 
 try {
   const { AssemblyViewer } = await import('./viewer.js');
   state.viewer = new AssemblyViewer($('scene'));
-  state.viewer.setFocus(currentStep().focus);
-  $('reset').onclick = () => state.viewer.reset();
-  $('explode').onclick = () => $('explode').setAttribute('aria-pressed', String(state.viewer.toggleExplode()));
-  $('highlight').onclick = () => $('highlight').setAttribute('aria-pressed', String(state.viewer.toggleHighlight()));
-  $('zoomIn').onclick = () => state.viewer.zoom(.83);
-  $('zoomOut').onclick = () => state.viewer.zoom(1.2);
+  const initialStep = currentStep();
+  if (initialStep) state.viewer.setFocus(safeArray(initialStep.focus));
+  $('reset')?.addEventListener('click', () => state.viewer?.reset());
+  $('explode')?.addEventListener('click', () => {
+    const button = $('explode');
+    if (button) button.setAttribute('aria-pressed', String(state.viewer?.toggleExplode()));
+  });
+  $('highlight')?.addEventListener('click', () => {
+    const button = $('highlight');
+    if (button) button.setAttribute('aria-pressed', String(state.viewer?.toggleHighlight()));
+  });
+  $('zoomIn')?.addEventListener('click', () => state.viewer?.zoom(.83));
+  $('zoomOut')?.addEventListener('click', () => state.viewer?.zoom(1.2));
 } catch (error) {
-  console.error('Échec du chargement 3D', error);
-  $('sceneError').hidden = false;
+  console.error('[Guide 3D] Échec du chargement 3D :', error);
+  const sceneError = $('sceneError');
+  if (sceneError) sceneError.hidden = false;
   document.querySelectorAll('.viewer-tools button').forEach(button => button.disabled = true);
 }
