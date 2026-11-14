@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -13,8 +12,7 @@ service cloud.firestore {
     }
 
     function hasProfile() {
-      return signedIn() &&
-        exists(profilePath(request.auth.uid));
+      return signedIn() && exists(profilePath(request.auth.uid));
     }
 
     function isActiveUser() {
@@ -28,30 +26,28 @@ service cloud.firestore {
         && get(profilePath(request.auth.uid)).data.get('role', '') == 'Admin';
     }
 
-    function isPublishedProcedure(procedureId) {
-      return procedureId is string
-        && exists(/databases/$(database)/documents/procedures/$(procedureId))
-        && get(/databases/$(database)/documents/procedures/$(procedureId)).data.status == 'published';
-    }
-
     match /users/{uid} {
-      allow get: if (signedIn() && request.auth.uid == uid && isActiveUser())
-        || isAdmin();
-
+      // Un utilisateur peut lire son propre profil pour initialiser sa session.
+      allow get: if signedIn() && request.auth.uid == uid;
       allow list: if isAdmin();
       allow create, update, delete: if isAdmin();
     }
 
     match /procedures/{id} {
-      allow get, list: if isActiveUser()
+      allow get: if isActiveUser()
+        && (isAdmin() || resource.data.status == 'published');
+      allow list: if isActiveUser()
         && (isAdmin() || resource.data.status == 'published');
 
       allow create, update, delete: if isAdmin();
     }
 
     match /chapters/{id} {
-      allow get, list: if isActiveUser()
-        && (isAdmin() || isPublishedProcedure(resource.data.procedureId));
+      // Les visiteurs ne peuvent lire que les chapitres explicitement publiés.
+      allow get: if isActiveUser()
+        && (isAdmin() || resource.data.published == true);
+      allow list: if isActiveUser()
+        && (isAdmin() || resource.data.published == true);
 
       allow create, update, delete: if isAdmin();
     }

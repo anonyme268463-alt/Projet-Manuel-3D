@@ -1,6 +1,6 @@
 import { chapters as demoChapters, sequence as demoSequence, firstStepOfChapter as demoFirstStep } from './data.js';
 import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
-import {getFirestore, collection, getDocs, query, where} from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCG9nmgw8xm83xD6BlbXLyS8fCd41olX6s",
@@ -227,7 +227,6 @@ function renderStep() {
     gas: 'Gaz'
   };
 
-  // FIX: les données de démonstration ne définissent pas toujours step.parts.
   const parts = partsList.length
     ? partsList.map(part => typeof part === 'string' ? part : safeText(part?.name || part?.label)).filter(Boolean).join(' · ')
     : focus.map(id => partNames[id] || id).join(' · ');
@@ -345,21 +344,16 @@ function updateSheet(index) {
   setDisabled('startChapter', count !== items.length || state.firstStep(index) < 0);
 }
 
-
 async function loadPublishedProcedure(config) {
-  // Ne récupérer que les procédures publiées.
+  // Les visiteurs ne récupèrent que les procédures publiées.
   const proceduresQuery = query(
     collection(db, 'procedures'),
     where('status', '==', 'published')
   );
-
   const proceduresSnapshot = await getDocs(proceduresQuery);
 
   const selected = proceduresSnapshot.docs
-    .map(document => ({
-      id: document.id,
-      ...document.data()
-    }))
+    .map(document => ({ id: document.id, ...document.data() }))
     .filter(procedure =>
       normal(procedure.vehicleId) === normal(config.model) &&
       normal(procedure.finishId) === normal(config.finish) &&
@@ -369,64 +363,30 @@ async function loadPublishedProcedure(config) {
 
   if (!selected) return false;
 
-  // Ne récupérer que les chapitres de cette procédure.
+  // Le champ published doit être true sur chaque chapitre publié.
   const chaptersQuery = query(
     collection(db, 'chapters'),
-    where('procedureId', '==', selected.id)
+    where('procedureId', '==', selected.id),
+    where('published', '==', true)
   );
-
   const chaptersSnapshot = await getDocs(chaptersQuery);
 
   const rawChapters = chaptersSnapshot.docs.map(document => ({
     id: document.id,
     ...document.data()
   }));
-
   const chapters = buildFirestoreChapters(rawChapters);
 
-  if (!chapters.length) return false;
-
-  setProcedureData(chapters, 'firestore');
-
-  const summary = $('selectedConfiguration');
-
-  if (summary) {
-    summary.textContent =
-      `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · ${selected.title || 'Guide publié'}`;
-  }
-
-  return true;
-}
-
-  const procedures = proceduresSnapshot.docs.map(document => ({
-    id: document.id,
-    ...document.data()
-  }));
-
-  const selected = procedures
-    .filter(procedure =>
-      procedure.status === 'published' &&
-      normal(procedure.vehicleId) === normal(config.model) &&
-      normal(procedure.finishId) === normal(config.finish) &&
-      normal(procedure.workstationId) === normal(config.station)
-    )
-    .sort(sortByOrder)[0];
-
-  if (!selected) return false;
-
-  const rawChapters = chaptersSnapshot.docs
-    .map(document => ({ id: document.id, ...document.data() }))
-    .filter(chapter => chapter.procedureId === selected.id);
-
-  const chapters = buildFirestoreChapters(rawChapters);
   if (!chapters.length) return false;
 
   setProcedureData(chapters, 'firestore');
 
   const summary = $('selectedConfiguration');
   if (summary) {
-    summary.textContent = `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · ${selected.title || 'Guide publié'}`;
+    summary.textContent =
+      `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · ${selected.title || 'Guide publié'}`;
   }
+
   return true;
 }
 
@@ -441,7 +401,7 @@ async function applyConfiguration(config) {
       return;
     }
 
-    setProcedureData(state.chapters === demoChapters ? state.chapters : demoChapters, 'demo');
+    setProcedureData(demoChapters.map(normalizeDemoChapter), 'demo');
     const summary = $('selectedConfiguration');
     if (summary) {
       summary.textContent = `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · Démonstration`;
