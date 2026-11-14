@@ -1,6 +1,9 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function signedIn() {
       return request.auth != null;
     }
@@ -10,7 +13,8 @@ service cloud.firestore {
     }
 
     function hasProfile() {
-      return signedIn() && exists(profilePath(request.auth.uid));
+      return signedIn() &&
+        exists(profilePath(request.auth.uid));
     }
 
     function isActiveUser() {
@@ -24,54 +28,70 @@ service cloud.firestore {
         && get(profilePath(request.auth.uid)).data.get('role', '') == 'Admin';
     }
 
+    function isPublishedProcedure(procedureId) {
+      return procedureId is string
+        && exists(/databases/$(database)/documents/procedures/$(procedureId))
+        && get(/databases/$(database)/documents/procedures/$(procedureId)).data.status == 'published';
+    }
+
     match /users/{uid} {
-      // Chaque utilisateur consulte son profil. Les admins gèrent la liste des comptes.
-      allow get: if isActiveUser() && (request.auth.uid == uid || isAdmin());
+      allow get: if (signedIn() && request.auth.uid == uid && isActiveUser())
+        || isAdmin();
+
       allow list: if isAdmin();
-      // Aucun auto-enregistrement ni auto-promotion : seul un admin crée/modifie les profils.
       allow create, update, delete: if isAdmin();
     }
 
-    // Données du manuel : visibles uniquement après authentification.
-    // Les écritures de contenu sont réservées aux administrateurs.
+    match /procedures/{id} {
+      allow get, list: if isActiveUser()
+        && (isAdmin() || resource.data.status == 'published');
+
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /chapters/{id} {
+      allow get, list: if isActiveUser()
+        && (isAdmin() || isPublishedProcedure(resource.data.procedureId));
+
+      allow create, update, delete: if isAdmin();
+    }
+
     match /vehicles/{id} {
       allow read: if isActiveUser();
       allow create, update, delete: if isAdmin();
     }
+
     match /finishes/{id} {
       allow read: if isActiveUser();
       allow create, update, delete: if isAdmin();
     }
+
     match /workstations/{id} {
       allow read: if isActiveUser();
       allow create, update, delete: if isAdmin();
     }
-    match /procedures/{id} {
-      allow read: if isActiveUser();
-      allow create, update, delete: if isAdmin();
-    }
-    match /chapters/{id} {
-      allow read: if isActiveUser();
-      allow create, update, delete: if isAdmin();
-    }
+
     match /models3d/{id} {
       allow read: if isActiveUser();
       allow create, update, delete: if isAdmin();
     }
+
     match /components3d/{id} {
       allow read: if isActiveUser();
       allow create, update, delete: if isAdmin();
     }
+
     match /materials/{id} {
       allow read: if isActiveUser();
       allow create, update, delete: if isAdmin();
     }
+
     match /assets/{id} {
       allow read: if isActiveUser();
       allow create, update, delete: if isAdmin();
     }
 
-    // Les sous-collections ne sont pas ouvertes implicitement.
+    // Tout le reste est interdit.
     match /{document=**} {
       allow read, write: if false;
     }
