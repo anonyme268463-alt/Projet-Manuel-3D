@@ -1,11 +1,79 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ATTENTION : accès public volontaire, à utiliser uniquement pour un prototype temporaire.
-    // Toute personne connaissant le projet peut lire, créer, modifier et supprimer les documents.
-    // Le PIN de l'interface web ne protège PAS ces règles.
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(profilePath(request.auth.uid));
+    }
+
+    function isActiveUser() {
+      return hasProfile()
+        && get(profilePath(request.auth.uid)).data.get('active', true) == true
+        && get(profilePath(request.auth.uid)).data.get('role', '') in ['Visit', 'Admin'];
+    }
+
+    function isAdmin() {
+      return isActiveUser()
+        && get(profilePath(request.auth.uid)).data.get('role', '') == 'Admin';
+    }
+
+    match /users/{uid} {
+      // Chaque utilisateur consulte son profil. Les admins gèrent la liste des comptes.
+      allow get: if isActiveUser() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      // Aucun auto-enregistrement ni auto-promotion : seul un admin crée/modifie les profils.
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Données du manuel : visibles uniquement après authentification.
+    // Les écritures de contenu sont réservées aux administrateurs.
+    match /vehicles/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+    match /finishes/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+    match /workstations/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+    match /procedures/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+    match /chapters/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+    match /models3d/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+    match /components3d/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+    match /materials/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+    match /assets/{id} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Les sous-collections ne sont pas ouvertes implicitement.
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

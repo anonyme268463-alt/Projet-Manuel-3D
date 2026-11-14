@@ -1,0 +1,33 @@
+/* Interface connexion et gestion des comptes Guide 3D */
+.ga-locked .workspace,.ga-locked .topbar{visibility:hidden}
+#guideAuthOverlay{position:fixed;inset:0;z-index:100000;background:linear-gradient(135deg,#102b4d,#183d5c 60%,#0e263f);display:grid;place-items:center;padding:22px}
+#guideAuthOverlay.ga-hidden{display:none}
+.ga-card{width:min(440px,100%);background:#fff;border-radius:20px;padding:38px;box-shadow:0 25px 90px #06182766}
+.ga-brand{font:800 18px Manrope,sans-serif;letter-spacing:.09em;color:#173451}.ga-brand span{color:#198462}
+.ga-eyebrow{font-size:9px;letter-spacing:.15em;font-weight:800;color:#8b9baa;margin:25px 0 10px}
+.ga-card h1{font:800 30px Manrope,sans-serif;letter-spacing:-.05em;color:#173451;margin:0 0 9px}
+.ga-subtitle,.ga-foot{font-size:12px;line-height:1.65;color:#8192a0}
+.ga-card label,.ga-create-form label{display:block;font-size:10px;letter-spacing:.1em;font-weight:800;color:#60778a;margin:18px 0 7px}
+.ga-card input,.ga-create-form input,.ga-create-form select{width:100%;border:1px solid #d9e3e9;border-radius:9px;padding:13px;font:inherit;color:#18354e;background:#fbfcfd}
+.ga-card input:focus,.ga-create-form input:focus,.ga-create-form select:focus{outline:0;border-color:#239875;box-shadow:0 0 0 3px #23987520}
+.ga-primary{width:100%;display:flex;justify-content:space-between;align-items:center;border:0;border-radius:9px;background:#198462;color:white;padding:15px 17px;font-weight:800;margin-top:20px}
+.ga-primary:disabled{opacity:.55}.ga-primary span{font-size:20px}
+.ga-error{min-height:17px;color:#b4473c;font-size:11px}
+.ga-foot{border-top:1px solid #edf1f3;padding-top:15px;margin:20px 0 0}
+#guideUserBadge{display:flex;align-items:center;gap:9px;font-size:10px;color:#486276}
+#guideUserBadge b,.ga-role{font-size:9px;letter-spacing:.08em;border-radius:20px;padding:6px 8px;background:#e6f5ed;color:#167250}
+#guideUserBadge button,.ga-admin-button{border:1px solid #d5e1e8;border-radius:7px;background:#fff;color:#31516a;padding:8px 10px;font-size:10px;font-weight:800}
+.ga-admin-button{border-color:#198462;color:#167250}
+#guideAccountPanel{display:none;position:fixed;z-index:99990;inset:3vh 3vw;background:#f7f9fa;border:1px solid #dce5eb;border-radius:16px;box-shadow:0 25px 90px #0a203a55;padding:25px;overflow:auto;color:#18354e}
+#guideAccountPanel.open{display:block}
+.ga-admin-head,.ga-users-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.ga-admin-head small{font-size:9px;letter-spacing:.15em;color:#218665;font-weight:800}.ga-admin-head h2{font:800 25px Manrope;margin:6px 0}.ga-admin-head p{font-size:12px;color:#8192a0}
+#gaCloseAdmin,#gaRefreshUsers{border:1px solid #dce5eb;background:#fff;border-radius:8px;padding:9px 12px;color:#34546c}
+.ga-create-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 15px;max-width:850px;background:#fff;border:1px solid #e0e8ed;border-radius:12px;padding:20px;margin:20px 0}
+.ga-create-form .ga-primary,#gaCreateMessage{grid-column:1/-1}
+#gaCreateMessage{font-size:12px;color:#177451;line-height:1.5}
+.ga-users-head{max-width:850px;margin:24px 0 10px}.ga-users-list{max-width:850px;background:#fff;border:1px solid #e0e8ed;border-radius:10px;padding:8px}
+.ga-user-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border-bottom:1px solid #edf1f3}.ga-user-row:last-child{border:0}
+.ga-user-row strong,.ga-user-row small{display:block}.ga-user-row strong{font-size:12px}.ga-user-row small{font-size:10px;color:#8494a1;margin-top:4px;overflow-wrap:anywhere}
+.ga-role.admin{background:#e9eefb;color:#425e9c}
+@media(max-width:650px){.ga-card{padding:27px}.ga-create-form{grid-template-columns:1fr}#guideAccountPanel{inset:8px;padding:15px}#guideUserBadge span{display:none}.ga-user-row small{max-width:220px}}
