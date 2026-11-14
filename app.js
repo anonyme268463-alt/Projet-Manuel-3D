@@ -1,6 +1,6 @@
 import { chapters as demoChapters, sequence as demoSequence, firstStepOfChapter as demoFirstStep } from './data.js';
 import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
-import { getFirestore, collection, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+import {getFirestore, collection, getDocs, query, where} from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCG9nmgw8xm83xD6BlbXLyS8fCd41olX6s",
@@ -345,11 +345,58 @@ function updateSheet(index) {
   setDisabled('startChapter', count !== items.length || state.firstStep(index) < 0);
 }
 
+
 async function loadPublishedProcedure(config) {
-  const [proceduresSnapshot, chaptersSnapshot] = await Promise.all([
-    getDocs(collection(db, 'procedures')),
-    getDocs(collection(db, 'chapters'))
-  ]);
+  // Ne récupérer que les procédures publiées.
+  const proceduresQuery = query(
+    collection(db, 'procedures'),
+    where('status', '==', 'published')
+  );
+
+  const proceduresSnapshot = await getDocs(proceduresQuery);
+
+  const selected = proceduresSnapshot.docs
+    .map(document => ({
+      id: document.id,
+      ...document.data()
+    }))
+    .filter(procedure =>
+      normal(procedure.vehicleId) === normal(config.model) &&
+      normal(procedure.finishId) === normal(config.finish) &&
+      normal(procedure.workstationId) === normal(config.station)
+    )
+    .sort(sortByOrder)[0];
+
+  if (!selected) return false;
+
+  // Ne récupérer que les chapitres de cette procédure.
+  const chaptersQuery = query(
+    collection(db, 'chapters'),
+    where('procedureId', '==', selected.id)
+  );
+
+  const chaptersSnapshot = await getDocs(chaptersQuery);
+
+  const rawChapters = chaptersSnapshot.docs.map(document => ({
+    id: document.id,
+    ...document.data()
+  }));
+
+  const chapters = buildFirestoreChapters(rawChapters);
+
+  if (!chapters.length) return false;
+
+  setProcedureData(chapters, 'firestore');
+
+  const summary = $('selectedConfiguration');
+
+  if (summary) {
+    summary.textContent =
+      `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · ${selected.title || 'Guide publié'}`;
+  }
+
+  return true;
+}
 
   const procedures = proceduresSnapshot.docs.map(document => ({
     id: document.id,
