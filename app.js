@@ -40,18 +40,19 @@ function setDataStatus(source) {
   if (!status) return;
   status.classList.toggle('live', source === 'firestore');
   status.classList.toggle('loading', source === 'loading');
-  status.lastChild.textContent = source === 'firestore'
-    ? ' Procédure publiée'
-    : source === 'loading' ? ' Chargement…' : ' Données de démonstration';
+  status.classList.toggle('error', source === 'error');
+  status.title = source === 'error' ? 'La base de données est inaccessible : les données de démonstration sont affichées.' : '';
+  status.lastChild.textContent = {
+    firestore: ' Procédure publiée',
+    loading: ' Chargement…',
+    error: ' Hors ligne · démonstration'
+  }[source] || ' Données de démonstration';
 }
 function reportStatus(message, level = 'info') {
   const count = $('chapterCount');
   if (count && level === 'loading') count.textContent = 'Chargement…';
   if (level === 'loading') setDataStatus('loading');
-  const description = $('stepDescription');
-  if (description && level === 'error') {
-    description.textContent = `${message} — Les données de démonstration restent disponibles.`;
-  }
+  if (level === 'error') setDataStatus('error');
   console[level === 'error' ? 'error' : 'log'](`[Guide 3D] ${message}`);
 }
 
@@ -407,6 +408,8 @@ async function applyConfiguration(config) {
   } catch (error) {
     console.error('[Guide 3D] Lecture Firestore impossible :', error);
     setProcedureData(demoChapters.map(normalizeDemoChapter), 'demo');
+    const summary = $('selectedConfiguration');
+    if (summary) summary.textContent = `${config.model} · ${String(config.finish).toUpperCase()} · ${config.station} · Démonstration`;
     reportStatus(`Lecture Firestore impossible (${error.code || 'erreur'}).`, 'error');
   }
 }

@@ -76,6 +76,8 @@ svg{flex:none}
 .status i{width:7px;height:7px;border-radius:50%;background:currentColor}
 .status.live{color:var(--green-700);background:var(--green-50);border-color:var(--green-100)}
 .status.loading i{animation:pulse 1s infinite}
+.status.error{color:var(--red);background:var(--red-50);border-color:#efcfca}
+body:has(.workspace[hidden]) #toggleSide,body:has(.workspace[hidden]) #toggleGuide{display:none}
 @keyframes pulse{50%{opacity:.25}}
 
 /* ---------- Espace de travail ---------- */
@@ -141,7 +143,7 @@ svg{flex:none}
 #scene{position:absolute;inset:0;touch-action:none;outline:none}
 #scene canvas{display:block}
 .view-hint{position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.86);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;color:var(--text);pointer-events:none;box-shadow:var(--shadow-sm)}
-.axis-label{position:absolute;bottom:18px;left:18px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--faint);pointer-events:none}
+.axis-label{position:absolute;top:24px;right:18px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--faint);pointer-events:none}
 .viewer-tools{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);padding:5px;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);white-space:nowrap}
 .viewer-tools button{display:inline-flex;align-items:center;gap:7px;min-height:var(--tap);min-width:var(--tap);justify-content:center;border:0;border-radius:10px;background:transparent;color:var(--text);font-size:12.5px;font-weight:600;padding:0 11px;transition:background .15s,color .15s}
 .viewer-tools button:hover{background:var(--bg);color:var(--ink)}
@@ -263,7 +265,7 @@ body.window-open{overflow:hidden}
   .workspace{display:flex;flex-direction:column;height:auto;min-height:calc(100dvh - var(--topbar-h))}
   .splitter{display:none}
   .center{height:62vh;min-height:420px}
-  .sidebar{max-height:none}
+  .center{order:1}.splitter{order:2}.instructions{order:3}.sidebar{order:4}
   .side-collapsed .sidebar,.guide-collapsed .instructions{display:none}
   #toggleSide,#toggleGuide{display:none}
   .welcome-screen{grid-template-columns:1fr;height:auto;min-height:calc(100dvh - var(--topbar-h))}

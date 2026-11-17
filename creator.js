@@ -25,7 +25,7 @@ function mount(){
  $("v3refresh").onclick=load;$("v3new").onclick=blank;$("v3form").onsubmit=save;$("v3delete").onclick=del;
  document.querySelectorAll("[data-shape]").forEach(b=>b.onclick=()=>addShape(b.dataset.shape));
  $("applyobj").onclick=apply;$("removeobj").onclick=remove;$("v3export").onclick=exportGLB;$("v3file").onchange=importGLB;$("v3savemodel").onclick=saveModel;$("stepform").onsubmit=addStep;
- init3d();
+ init3d();blank();
 }
 function page(p){$("v3data").hidden=p!=="data";$("v3model").hidden=p!=="model";$("v3steps").hidden=p!=="steps";document.querySelectorAll("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===p));if(p==="model")resize();}
 function renderCols(){const h=$("v3cols");h.replaceChildren();cols.forEach(c=>{const b=document.createElement("button");b.textContent=names[c];b.className=c===col?"active":"";b.setAttribute("aria-pressed",String(c===col));b.onclick=()=>{col=c;chosen=null;renderCols();load()};h.append(b)})}
