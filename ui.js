@@ -149,8 +149,9 @@ function sync(win) { (isOpen(win) ? onOpened : onClosed)(win); }
 
 export function closeWindow(win) {
   if (!win || !isOpen(win)) return;
-  win.dispatchEvent(new CustomEvent('window:close', { bubbles: true }));
-  win.hidden = true;
+  // Une fenêtre peut refuser la fermeture (modifications non enregistrées).
+  const proceed = win.dispatchEvent(new CustomEvent('window:close', { bubbles: true, cancelable: true }));
+  if (proceed) win.hidden = true;
 }
 
 const observer = new MutationObserver(records => {

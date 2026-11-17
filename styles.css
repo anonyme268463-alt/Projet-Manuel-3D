@@ -289,3 +289,12 @@ body.window-open{overflow:hidden}
   .welcome-cta{width:100%;min-width:0}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ---------- Pop-up de protection ---------- */
+.protect-modal{z-index:200000}
+.protect-card{width:min(400px,100%);padding:32px 30px 26px;text-align:center;align-items:center}
+.protect-icon{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 14px;border-radius:18px;background:var(--red-50);color:var(--red)}
+.protect-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.protect-card h2{font:800 22px var(--font-display);color:var(--ink);margin:0 0 8px}
+.protect-card p{font-size:15px;line-height:1.55;color:var(--text);margin:0 0 20px}
+.protect-card .btn{min-width:160px}

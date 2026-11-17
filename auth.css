@@ -49,7 +49,7 @@
 .ga-create-form .ga-primary,#gaCreateMessage,.ga-create-form>p{grid-column:1/-1}
 #gaCreateMessage{font-size:13px;color:var(--green-700);line-height:1.5;margin:12px 0 0}
 #gaCreateMessage:empty{display:none}
-.ga-users-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:26px 26px 10px}
+.ga-users-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:26px 26px 10px}
 .ga-users-head strong{font:700 15px var(--font-display)}
 .ga-users-list{margin:0 26px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;font-size:13px;color:var(--muted)}
 .ga-user-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
@@ -61,12 +61,55 @@
 .ga-role.admin{background:var(--navy-100);color:var(--navy)}
 #guideAccountPanel>.ga-foot{margin:18px 26px 0}
 
+/* Sections, édition des comptes, mot de passe */
+.ga-section-title{font:700 16px var(--font-display);color:var(--ink);margin:26px 26px 0}
+.ga-users-head .ga-section-title{margin:0}
+.ga-users-tools{display:flex;gap:8px}
+.ga-users-tools input{min-height:var(--tap);border:1px solid var(--line-strong);border-radius:10px;padding:0 12px;font-size:13.5px;background:var(--surface);min-width:220px}
+.ga-users-tools input:focus{outline:none;border-color:var(--green-500);box-shadow:0 0 0 4px var(--green-100)}
+.ga-create-form>.ga-section-title{grid-column:1/-1}
+.ga-user-row{flex-wrap:wrap}
+.ga-user-row .ga-avatar{flex:none}
+.ga-avatar.off{background:var(--line-strong);color:var(--muted)}
+.ga-user-main{flex:1;min-width:160px}
+.ga-user-main em{font-style:normal;font-weight:500;color:var(--muted)}
+.ga-user-row.inactive .ga-user-main strong{color:var(--muted)}
+.ga-role.off{background:var(--red-50);color:var(--red)}
+.ga-edit{min-height:34px!important;padding:0 12px!important;font-size:12.5px!important}
+.ga-user-row.editing{align-items:flex-start;background:var(--surface-2)}
+.ga-edit-grid{flex:1;min-width:240px;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.ga-edit-grid label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--text)}
+.ga-edit-grid input:not([type=checkbox]),.ga-edit-grid select{min-height:var(--tap);border:1px solid var(--line-strong);border-radius:10px;padding:0 11px;font-size:14px;background:var(--surface);color:var(--ink)}
+.ga-edit-grid input:focus,.ga-edit-grid select:focus{outline:none;border-color:var(--green-500);box-shadow:0 0 0 4px var(--green-100)}
+.ga-edit-grid select:disabled{background:var(--bg);color:var(--muted)}
+.ga-toggle{flex-direction:row!important;align-items:center;gap:10px!important;grid-column:1/-1;cursor:pointer;font-weight:500!important}
+.ga-toggle input{position:absolute;opacity:0}
+.ga-toggle span{position:relative;width:40px;height:24px;border-radius:99px;background:var(--line-strong);transition:background .18s;flex:none}
+.ga-toggle span::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:var(--shadow-sm);transition:transform .18s var(--ease)}
+.ga-toggle input:checked+span{background:var(--green)}
+.ga-toggle input:checked+span::after{transform:translateX(16px)}
+.ga-toggle input:disabled+span{opacity:.5}
+.ga-toggle input:focus-visible+span{outline:2px solid var(--green-500);outline-offset:2px}
+.ga-note{grid-column:1/-1;margin:0;font-size:12px;color:var(--muted)}
+.ga-note code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);padding:1px 6px;border-radius:5px}
+.ga-row-actions{display:flex;gap:8px;align-self:flex-end}
+.ga-row-actions .btn{min-height:var(--tap)}
+.ga-empty{margin:0;padding:14px 16px}
+.ga-bad{color:var(--red)!important}
+.ga-flash{margin:0 26px 8px;padding:10px 14px;border-radius:10px;background:var(--green-50);border:1px solid var(--green-100);color:var(--green-700);font-size:13px}
+.ga-flash.ga-bad{background:var(--red-50);border-color:#efcfca}
+.ga-form-message{grid-column:1/-1;font-size:13px;color:var(--green-700);margin:12px 0 0}
+.ga-form-message:empty{display:none}
+#guideAccountPanel .ga-create-form{margin-top:12px}
+
 @media(max-width:1100px){.ga-who,.creator-open .label,.ga-admin-button .label{display:none}}
 @media(max-width:640px){
   .ga-card{padding:26px 22px 20px}
   .app-window{inset:0;border-radius:0}
   .ga-create-form{grid-template-columns:1fr;margin:16px}
-  .ga-users-head,.ga-users-list,#guideAccountPanel>.ga-foot{margin-left:16px;margin-right:16px}
+  .ga-users-head,.ga-users-list,#guideAccountPanel>.ga-foot,.ga-section-title,.ga-flash{margin-left:16px;margin-right:16px}
+  .ga-users-tools{width:100%}.ga-users-tools input{min-width:0;flex:1}
+  .ga-edit-grid{grid-template-columns:1fr}
   .ga-admin-head,.v3-head{padding:16px}
   #guideUserBadge{padding-left:8px}
 }

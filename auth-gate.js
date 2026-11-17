@@ -7,7 +7,10 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import {
   collection, doc, getDocFromServer, getDocs, setDoc, serverTimestamp
@@ -70,9 +73,10 @@ function ensureShell() {
     panel.setAttribute("aria-labelledby", "gaAdminTitle");
     panel.innerHTML = `
       <div class="ga-admin-head">
-        <div><small>Administration</small><h2 id="gaAdminTitle">Gestion des accès</h2><p>Créer les comptes opérateurs et administrateurs.</p></div>
+        <div><small>Administration</small><h2 id="gaAdminTitle">Gestion des accès</h2><p>Créer, modifier et désactiver les comptes opérateurs et administrateurs.</p></div>
         <button id="gaCloseAdmin" class="window-close" type="button" aria-label="Fermer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
+      <h3 class="ga-section-title">Créer un compte</h3>
       <form id="gaCreateForm" class="ga-create-form">
         <label>Identifiant<input id="gaNewUsername" required minlength="3" maxlength="30" pattern="[A-Za-z0-9._-]+" placeholder="ex. atelier01"></label>
         <label>Nom affiché<input id="gaNewName" required maxlength="60" placeholder="Prénom ou nom"></label>
@@ -81,13 +85,24 @@ function ensureShell() {
         <button class="ga-primary" type="submit">Créer le compte</button>
         <p id="gaCreateMessage" role="status"></p>
       </form>
-      <div class="ga-users-head"><strong>Comptes enregistrés</strong><button id="gaRefreshUsers" class="btn btn-outline" type="button">Actualiser</button></div>
+      <div class="ga-users-head"><h3 class="ga-section-title">Comptes enregistrés</h3><div class="ga-users-tools"><input id="gaUserSearch" type="search" placeholder="Rechercher un compte…" aria-label="Rechercher un compte"><button id="gaRefreshUsers" class="btn btn-outline" type="button">Actualiser</button></div></div>
       <div id="gaUsersList" class="ga-users-list">Chargement…</div>
-      <p class="ga-foot">Les mots de passe sont gérés exclusivement par Firebase Authentication.</p>`;
+      <h3 class="ga-section-title">Mon mot de passe</h3>
+      <form id="gaPasswordForm" class="ga-create-form" autocomplete="off">
+        <label>Mot de passe actuel<input id="gaPwdCurrent" type="password" required autocomplete="current-password"></label>
+        <span></span>
+        <label>Nouveau mot de passe<input id="gaPwdNew" type="password" required minlength="8" autocomplete="new-password" placeholder="8 caractères minimum"></label>
+        <label>Confirmer le nouveau mot de passe<input id="gaPwdConfirm" type="password" required minlength="8" autocomplete="new-password"></label>
+        <button class="ga-primary" type="submit"><span class="ga-label">Changer mon mot de passe</span><span aria-hidden="true">→</span></button>
+        <p id="gaPwdMessage" class="ga-form-message" role="status"></p>
+      </form>
+      <p class="ga-foot">Les mots de passe sont gérés par Firebase Authentication et ne sont jamais enregistrés dans la base. Pour réinitialiser le mot de passe d'un autre compte, supprime son utilisateur dans la console Firebase (Authentication) puis recrée-le ici avec le même identifiant.</p>`;
     document.body.append(panel);
     $("gaCloseAdmin").onclick = () => { panel.hidden = true; };
     $("gaCreateForm").addEventListener("submit", createAccount);
     $("gaRefreshUsers").onclick = loadUsers;
+    $("gaUserSearch").addEventListener("input", renderUsers);
+    $("gaPasswordForm").addEventListener("submit", changeOwnPassword);
   }
 }
 
@@ -234,22 +249,140 @@ async function login(event) {
   }
 }
 
+let userRows = [];
+let editingUid = null;
+
 async function loadUsers() {
   const host = $("gaUsersList");
   if (!host || currentProfile?.role !== "Admin") return;
-  host.textContent = "Chargement…";
+  host.innerHTML = '<p class="ga-empty">Chargement…</p>';
   try {
     const snapshot = await getDocs(collection(db, "users"));
-    const rows = snapshot.docs.map(item => ({ uid: item.id, ...item.data() }));
-    rows.sort((a, b) => String(a.name || a.username || "").localeCompare(String(b.name || b.username || ""), "fr"));
-    host.innerHTML = rows.map(user => `
-      <div class="ga-user-row">
-        <div><strong>${escapeHtml(user.name || user.username || "Compte")}</strong><small>${escapeHtml(user.username || "identifiant non renseigné")} · ${escapeHtml(user.uid)}</small></div>
-        <span class="ga-role ${user.role === "Admin" ? "admin" : ""}">${escapeHtml(user.role || "Visit")}</span>
-      </div>`).join("") || "Aucun compte.";
+    userRows = snapshot.docs
+      .map(item => ({ uid: item.id, ...item.data() }))
+      .filter(user => user.username || user.name || user.role);
+    userRows.sort((a, b) => String(a.name || a.username || "").localeCompare(String(b.name || b.username || ""), "fr"));
+    renderUsers();
   } catch (error) {
     console.error("[Guide 3D] Liste des comptes :", error);
-    host.textContent = `Impossible de charger les comptes : ${error.message}`;
+    host.innerHTML = `<p class="ga-empty ga-bad">Impossible de charger les comptes : ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function renderUsers() {
+  const host = $("gaUsersList");
+  if (!host) return;
+  const query = String($("gaUserSearch")?.value || "").trim().toLowerCase();
+  const rows = userRows.filter(user => !query || `${user.name || ""} ${user.username || ""}`.toLowerCase().includes(query));
+  if (!rows.length) { host.innerHTML = `<p class="ga-empty">${userRows.length ? "Aucun résultat." : "Aucun compte."}</p>`; return; }
+  const me = auth.currentUser?.uid;
+  host.innerHTML = rows.map(user => {
+    const self = user.uid === me;
+    const inactive = user.active === false;
+    const initials = String(user.name || user.username || "?").split(/\s+/).map(p => p[0]).join("").slice(0, 2).toUpperCase();
+    if (editingUid === user.uid) {
+      return `
+      <form class="ga-user-row editing" data-uid="${escapeHtml(user.uid)}">
+        <span class="ga-avatar${inactive ? " off" : ""}" aria-hidden="true">${escapeHtml(initials)}</span>
+        <div class="ga-edit-grid">
+          <label>Nom affiché<input name="name" required maxlength="60" value="${escapeHtml(user.name || "")}"></label>
+          <label>Rôle<select name="role"${self ? " disabled" : ""}>
+            <option value="Visit"${user.role !== "Admin" ? " selected" : ""}>Opérateur (consultation)</option>
+            <option value="Admin"${user.role === "Admin" ? " selected" : ""}>Administrateur</option>
+          </select></label>
+          <label class="ga-toggle"><input type="checkbox" name="active"${inactive ? "" : " checked"}${self ? " disabled" : ""}><span></span>Compte actif</label>
+          ${self ? '<p class="ga-note">Tu ne peux pas modifier ton propre rôle ni désactiver ton compte.</p>' : ""}
+          <p class="ga-note">Identifiant : <code>${escapeHtml(user.username || "—")}</code> (non modifiable)</p>
+        </div>
+        <div class="ga-row-actions">
+          <button type="button" class="btn btn-outline" data-act="cancel">Annuler</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+      </form>`;
+    }
+    return `
+      <div class="ga-user-row${inactive ? " inactive" : ""}" data-uid="${escapeHtml(user.uid)}">
+        <span class="ga-avatar${inactive ? " off" : ""}" aria-hidden="true">${escapeHtml(initials)}</span>
+        <div class="ga-user-main"><strong>${escapeHtml(user.name || user.username || "Compte")}${self ? ' <em>(toi)</em>' : ""}</strong><small>${escapeHtml(user.username || "identifiant non renseigné")}</small></div>
+        <span class="ga-role ${user.role === "Admin" ? "admin" : ""}">${user.role === "Admin" ? "Admin" : "Opérateur"}</span>
+        ${inactive ? '<span class="ga-role off">Désactivé</span>' : ""}
+        <button type="button" class="btn btn-outline ga-edit" data-act="edit">Modifier</button>
+      </div>`;
+  }).join("");
+
+  host.querySelectorAll("[data-act=edit]").forEach(button => button.addEventListener("click", () => {
+    editingUid = button.closest("[data-uid]").dataset.uid;
+    renderUsers();
+    host.querySelector("form.editing input[name=name]")?.focus();
+  }));
+  host.querySelectorAll("[data-act=cancel]").forEach(button => button.addEventListener("click", () => { editingUid = null; renderUsers(); }));
+  host.querySelectorAll("form.editing").forEach(form => form.addEventListener("submit", saveUser));
+}
+
+async function saveUser(event) {
+  event.preventDefault();
+  const form = event.target;
+  const uid = form.dataset.uid;
+  const user = userRows.find(row => row.uid === uid);
+  if (!user) return;
+  const self = uid === auth.currentUser?.uid;
+  const name = form.elements.name.value.trim();
+  const role = self ? user.role : form.elements.role.value;
+  const active = self ? true : form.elements.active.checked;
+  if (!name) return;
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  try {
+    await setDoc(doc(db, "users", uid), {
+      name, role, active,
+      updatedAt: serverTimestamp(),
+      updatedBy: auth.currentUser.uid
+    }, { merge: true });
+    Object.assign(user, { name, role, active });
+    editingUid = null;
+    renderUsers();
+    flash(`Compte « ${user.username || name} » mis à jour.`);
+  } catch (error) {
+    console.error("[Guide 3D] Modification du compte :", error);
+    flash(error.code === "permission-denied" ? "Firebase refuse la modification : vérifie les règles Firestore." : error.message, true);
+    submit.disabled = false;
+  }
+}
+
+function flash(message, bad = false) {
+  const host = $("gaUsersList");
+  const note = document.createElement("p");
+  note.className = `ga-flash${bad ? " ga-bad" : ""}`;
+  note.setAttribute("role", "status");
+  note.textContent = message;
+  host?.before(note);
+  setTimeout(() => note.remove(), 4000);
+}
+
+async function changeOwnPassword(event) {
+  event.preventDefault();
+  const message = $("gaPwdMessage");
+  message.className = "ga-form-message";
+  const current = $("gaPwdCurrent").value;
+  const next = $("gaPwdNew").value;
+  if (next !== $("gaPwdConfirm").value) { message.textContent = "Les deux nouveaux mots de passe ne correspondent pas."; message.classList.add("ga-bad"); return; }
+  if (next.length < 8) { message.textContent = "8 caractères minimum."; message.classList.add("ga-bad"); return; }
+  const user = auth.currentUser;
+  const submit = event.target.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  try {
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, current));
+    await updatePassword(user, next);
+    event.target.reset();
+    message.textContent = "Mot de passe modifié.";
+  } catch (error) {
+    console.error("[Guide 3D] Mot de passe :", error);
+    message.textContent = error.code === "auth/invalid-credential" || error.code === "auth/wrong-password"
+      ? "Le mot de passe actuel est incorrect."
+      : error.code === "auth/weak-password" ? "Mot de passe trop faible." : error.message;
+    message.classList.add("ga-bad");
+  } finally {
+    submit.disabled = false;
   }
 }
 

@@ -12,7 +12,9 @@ Site en ligne : https://anonyme268463-alt.github.io/Projet-Manuel-3D/
 - **Visionneuse 3D** (Three.js) : rotation, zoom, vue éclatée, surbrillance des pièces de l'étape.
 - **Guide opérateur** : étapes, pièces concernées, points de contrôle, photos et nomenclature à cocher avant chaque chapitre.
 - **Espace de travail modulable** : panneaux repliables et redimensionnables (préférences mémorisées), mode tablette d'atelier avec de plus grandes cibles tactiles.
-- **Administration** : création des comptes et créateur de données, de modèles 3D et d'étapes (réservés au rôle `Admin`).
+- **Administration** (rôle `Admin`) : création et modification des comptes (nom, rôle, activation) ; chacun peut changer son propre mot de passe.
+- **Espace créateur** (rôle `Admin` + code d'accès, `0342` par défaut, modifiable dans « Réglages ») : véhicules, coloris, postes, procédures, chapitres avec nomenclature, éditeur d'étapes et éditeur 3D. Les données saisies alimentent directement l'assistant et le guide.
+- **Protection** : clic droit et raccourcis des outils de développement bloqués sur le guide (sauf dans l'espace créateur et la gestion des comptes). C'est une mesure dissuasive : la sécurité des données repose sur les règles Firestore.
 
 ### Raccourcis clavier
 
@@ -31,6 +33,7 @@ Site en ligne : https://anonyme268463-alt.github.io/Projet-Manuel-3D/
 | `styles.css` | Système de design, mise en page, accueil et assistant |
 | `auth.css` / `creator.css` | Connexion, fenêtres d'administration et créateur |
 | `ui.js` | Panneaux, fenêtres modales et raccourcis clavier |
+| `protect.js` | Blocage du clic droit et des outils de développement |
 | `app.js` | Navigation dans les procédures et lecture Firestore |
 | `onboarding.js` | Écran d'accueil et assistant de configuration |
 | `viewer.js` | Visionneuse 3D |
@@ -44,7 +47,14 @@ Site en ligne : https://anonyme268463-alt.github.io/Projet-Manuel-3D/
 
 - Projet : `guide-3d`.
 - **Base Firestore : `default` (sans parenthèses).** Ce n'est pas la base par défaut `(default)` du SDK. Le nom est indiqué dans `firebase-client.js` (`FIRESTORE_DATABASE_ID`).
-- Les règles de `firestore.rules` doivent être publiées sur la base `default` (Firestore → Sécurité).
+- Les règles de `firestore.rules` doivent être publiées sur la base `default` (Firestore → Sécurité). Elles incluent la collection `settings`, qui stocke l'empreinte du code d'accès du créateur.
+
+### Publier un guide depuis l'espace créateur
+
+1. **Données › Véhicules, Coloris, Postes** : créer les options de l'assistant.
+2. **Données › Procédures** : associer un véhicule, un coloris et un poste, puis passer le statut à « Publiée ».
+3. **Données › Chapitres** : créer les chapitres de la procédure (ordre, nomenclature), puis les marquer « publiés ».
+4. **Étapes** : choisir un chapitre et ajouter ses étapes (instruction, pièces 3D, outils, point de contrôle, photos).
 
 ### Créer un compte
 

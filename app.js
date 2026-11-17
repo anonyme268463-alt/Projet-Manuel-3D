@@ -21,6 +21,10 @@ function safeArray(value) {
 function safeText(value, fallback = '') {
   return value === null || value === undefined ? fallback : String(value);
 }
+function key(value) {
+  return safeText(value).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\+/g, '-plus').replace(/[^a-z0-9_-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/g, '');
+}
 function normal(value) {
   return safeText(value).trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
@@ -352,10 +356,11 @@ async function loadPublishedProcedure(config) {
 
   const selected = proceduresSnapshot.docs
     .map(document => ({ id: document.id, ...document.data() }))
+    // Correspondance par identifiant (créateur) ou par nom (anciennes données).
     .filter(procedure =>
-      normal(procedure.vehicleId) === normal(config.model) &&
-      normal(procedure.finishId) === normal(config.finish) &&
-      normal(procedure.workstationId) === normal(config.station)
+      [config.modelId, config.model].some(v => key(v) === key(procedure.vehicleId)) &&
+      [config.finishId, config.finish].some(v => key(v) === key(procedure.finishId)) &&
+      [config.stationId, config.station].some(v => key(v) === key(procedure.workstationId))
     )
     .sort(sortByOrder)[0];
 

@@ -1,3 +1,6 @@
+import { collection, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+import { db } from './firebase-client.js';
+
 const $ = id => document.getElementById(id);
 const workspace = document.querySelector('.workspace');
 
@@ -40,16 +43,49 @@ document.querySelector('.topbar').after(welcome);
 welcome.after(wizard);
 workspace.hidden = true;
 
-const state = { page: 0, model: '', finish: '', station: '' };
-const models = ['Flex 3', 'Flex 5', 'Flex +'];
-const stations = [
-  ['Cuisine', 'Assemblage du bloc cuisine', true],
-  ['Menuiserie', 'Meubles et habillages', false],
-  ['Électricité', 'Installation électrique', false],
-  ['Plomberie', 'Installation des réseaux d’eau', false],
-  ['Gaz', 'Installation des équipements gaz', false],
-  ['Finitions', 'Contrôles et finitions', false]
-];
+const state = { page: 0, model: null, finish: null, station: null };
+
+// Options de démonstration, remplacées par les données du créateur lorsqu'elles existent.
+const DEMO = {
+  models: [
+    { id: 'flex-3', name: 'Flex 3', description: 'Gamme du véhicule' },
+    { id: 'flex-5', name: 'Flex 5', description: 'Gamme du véhicule' },
+    { id: 'flex-plus', name: 'Flex +', description: 'Gamme du véhicule' }
+  ],
+  finishes: [
+    { id: 'alba', name: 'Alba', label: 'Noir & Chêne', colors: ['#18191b', '#ba9163'] },
+    { id: 'sera', name: 'Sera', label: 'Noir & Blanc', colors: ['#18191b', '#f4f3ef'] }
+  ],
+  stations: [
+    { id: 'cuisine', name: 'Cuisine', description: 'Assemblage du bloc cuisine', available: true },
+    { id: 'menuiserie', name: 'Menuiserie', description: 'Meubles et habillages', available: false },
+    { id: 'electricite', name: 'Électricité', description: 'Installation électrique', available: false },
+    { id: 'plomberie', name: 'Plomberie', description: 'Installation des réseaux d’eau', available: false },
+    { id: 'gaz', name: 'Gaz', description: 'Installation des équipements gaz', available: false },
+    { id: 'finitions', name: 'Finitions', description: 'Contrôles et finitions', available: false }
+  ]
+};
+const options = { ...DEMO };
+
+async function loadOptions() {
+  const read = async name => {
+    const snapshot = await getDocs(collection(db, name));
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || String(a.name).localeCompare(String(b.name), 'fr'));
+  };
+  try {
+    const [vehicles, finishes, stations] = await Promise.all([read('vehicles'), read('finishes'), read('workstations')]);
+    const v = vehicles.filter(x => x.active !== false && x.name);
+    const f = finishes.filter(x => x.active !== false && x.name);
+    const w = stations.filter(x => x.name);
+    if (v.length) options.models = v.map(x => ({ id: x.id, name: x.name, description: x.description || 'Gamme du véhicule' }));
+    if (f.length) options.finishes = f.map(x => ({ id: x.id, name: x.name, label: x.label || '', colors: Array.isArray(x.colors) ? x.colors : [] }));
+    if (w.length) options.stations = w.map(x => ({ id: x.id, name: x.name, description: x.description || '', available: x.available !== false }));
+  } catch (error) {
+    console.warn('[Guide 3D] Options de configuration : données de démonstration utilisées.', error?.code || error);
+  }
+}
+
 const headings = [
   ['Choisissez votre gamme', 'Sélectionnez le modèle de van.'],
   ['Choisissez votre coloris', 'Sélectionnez la finition intérieure.'],
@@ -95,43 +131,44 @@ function render() {
   grid.replaceChildren();
 
   if (state.page === 0) {
-    models.forEach(model => grid.append(card(model, 'Gamme du véhicule', () => {
+    options.models.forEach(model => grid.append(card(model.name, model.description, () => {
       state.model = model; state.page = 1; render();
     })));
   }
   if (state.page === 1) {
-    grid.append(card('ALBA', 'Noir & Chêne', () => {
-      state.finish = 'Alba'; state.page = 2; render();
-    }, { swatches: ['#18191b', '#ba9163'] }));
-    grid.append(card('SERA', 'Noir & Blanc', () => {
-      state.finish = 'Sera'; state.page = 2; render();
-    }, { swatches: ['#18191b', '#f4f3ef'] }));
+    options.finishes.forEach(finish => grid.append(card(finish.name.toUpperCase(), finish.label, () => {
+      state.finish = finish; state.page = 2; render();
+    }, { swatches: finish.colors })));
   }
   if (state.page === 2) {
-    stations.forEach(([name, desc, available]) => grid.append(card(name, desc, () => {
-      state.station = name; state.page = 3; render();
-    }, { disabled: !available })));
+    options.stations.forEach(station => grid.append(card(station.name, station.description, () => {
+      state.station = station; state.page = 3; render();
+    }, { disabled: !station.available })));
   }
   if (state.page === 3) {
-    grid.append(card('Gamme', state.model, () => { state.page = 0; render(); }));
-    grid.append(card('Coloris', `${state.finish.toUpperCase()} · ${state.finish === 'Alba' ? 'Noir & Chêne' : 'Noir & Blanc'}`, () => {
+    grid.append(card('Gamme', state.model.name, () => { state.page = 0; render(); }));
+    grid.append(card('Coloris', [state.finish.name.toUpperCase(), state.finish.label].filter(Boolean).join(' · '), () => {
       state.page = 1; render();
     }));
-    grid.append(card('Poste', state.station, () => { state.page = 2; render(); }));
+    grid.append(card('Poste', state.station.name, () => { state.page = 2; render(); }));
     grid.append(card('Ouvrir le guide', 'Afficher la procédure correspondant à la sélection', openGuide, { primary: true }));
   }
   $('wizardHint').textContent = state.page === 2
-    ? 'Seule la cuisine dispose actuellement d’une démonstration.'
-    : state.page === 3 ? 'Les procédures de démonstration ne sont pas des instructions industrielles.' : 'Choisissez une option pour continuer.';
+    ? 'Les postes « À venir » n’ont pas encore de guide.'
+    : state.page === 3 ? 'Seules les procédures publiées sont affichées.' : 'Choisissez une option pour continuer.';
 }
 
 function openGuide() {
   wizard.hidden = true;
   workspace.hidden = false;
-  const config = { model: state.model, finish: state.finish, station: state.station };
+  const config = {
+    model: state.model.name, modelId: state.model.id,
+    finish: state.finish.name, finishId: state.finish.id,
+    station: state.station.name, stationId: state.station.id
+  };
   window.__GUIDE_CONFIG__ = config;
-  $('vehicle').replaceChildren(new Option(state.model, state.model));
-  $('station').replaceChildren(new Option(state.station, state.station));
+  $('vehicle').replaceChildren(new Option(config.model, config.modelId));
+  $('station').replaceChildren(new Option(config.station, config.stationId));
   let summary = $('selectedConfiguration');
   if (!summary) {
     summary = document.createElement('p');
@@ -139,12 +176,16 @@ function openGuide() {
     summary.className = 'selected-configuration';
     document.querySelector('.viewer-heading > div').append(summary);
   }
-  summary.textContent = `${state.model} · ${state.finish.toUpperCase()} · ${state.station} · Chargement du guide…`;
+  summary.textContent = `${config.model} · ${config.finish.toUpperCase()} · ${config.station} · Chargement du guide…`;
   window.dispatchEvent(new CustomEvent('guide3d:configuration', { detail: config }));
   window.scrollTo(0, 0); wizard.scrollTop = 0;
 }
 
-$('accessGuide').addEventListener('click', () => {
+$('accessGuide').addEventListener('click', async () => {
+  const button = $('accessGuide');
+  button.disabled = true;
+  await loadOptions();
+  button.disabled = false;
   welcome.hidden = true;
   wizard.hidden = false;
   state.page = 0;
@@ -161,7 +202,8 @@ change.type = 'button';
 change.className = 'change-configuration';
 change.textContent = '← Changer de configuration';
 document.querySelector('.side-footer').append(change);
-change.addEventListener('click', () => {
+change.addEventListener('click', async () => {
+  await loadOptions();
   workspace.hidden = true;
   wizard.hidden = false;
   state.page = 0;
