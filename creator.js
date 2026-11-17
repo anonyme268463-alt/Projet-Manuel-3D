@@ -399,6 +399,8 @@ function mount() {
 
   renderCols();
   newItem();
+  renderStepList();
+  renderPartChips([]);
 }
 
 /* ==========================================================================
@@ -858,7 +860,8 @@ function selectStepChapter(chapterId, keepIndex = false) {
     ? `${state.steps.list.length} étape(s) · ${chapter.data.published ? "chapitre publié" : "chapitre non publié"}. Chaque modification est enregistrée directement.`
     : "Choisis un chapitre pour afficher ses étapes.";
   renderStepList();
-  editStep(keepIndex && state.steps.index < state.steps.list.length ? state.steps.index : (state.steps.list.length ? 0 : null));
+  const keep = keepIndex && state.steps.index >= 0 && state.steps.index < state.steps.list.length;
+  editStep(keep ? state.steps.index : (state.steps.list.length ? 0 : null));
 }
 
 function renderStepList() {
