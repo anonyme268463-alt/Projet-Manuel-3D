@@ -35,9 +35,19 @@ function setDisabled(id, value) {
   const element = $(id);
   if (element) element.disabled = Boolean(value);
 }
+function setDataStatus(source) {
+  const status = $('dataStatus');
+  if (!status) return;
+  status.classList.toggle('live', source === 'firestore');
+  status.classList.toggle('loading', source === 'loading');
+  status.lastChild.textContent = source === 'firestore'
+    ? ' Procédure publiée'
+    : source === 'loading' ? ' Chargement…' : ' Données de démonstration';
+}
 function reportStatus(message, level = 'info') {
   const count = $('chapterCount');
-  if (count && level === 'loading') count.textContent = 'CHARGEMENT…';
+  if (count && level === 'loading') count.textContent = 'Chargement…';
+  if (level === 'loading') setDataStatus('loading');
   const description = $('stepDescription');
   if (description && level === 'error') {
     description.textContent = `${message} — Les données de démonstration restent disponibles.`;
@@ -100,7 +110,8 @@ function setProcedureData(chapters, source = 'demo') {
   state.source = source;
 
   const count = $('chapterCount');
-  if (count) count.textContent = `${chapters.length} MODULES${source === 'demo' ? ' · DÉMO' : ' · FIRESTORE'}`;
+  if (count) count.textContent = `${chapters.length} modules`;
+  setDataStatus(source);
 
   renderNavigation();
   if (state.sequence.length) {
@@ -147,7 +158,7 @@ function renderPhotos(photos) {
     panel.className = 'detail-card';
     const label = document.createElement('div');
     label.className = 'detail-label';
-    label.textContent = '▧ PHOTOS DE L’ÉTAPE';
+    label.textContent = 'Photos de l’étape';
     const content = document.createElement('div');
     content.id = 'stepPhotoContent';
     content.className = 'detail-content';
@@ -169,7 +180,7 @@ function renderPhotos(photos) {
     image.src = photo.url || photo.src;
     image.alt = safeText(photo.caption, 'Photo de l’étape');
     image.loading = 'lazy';
-    image.style.cssText = 'width:100%;max-height:230px;object-fit:contain;border-radius:8px;margin:6px 0;background:#f1f4f6';
+    image.style.cssText = 'width:100%;max-height:240px;object-fit:contain;border-radius:10px;margin:6px 0;background:#fff;border:1px solid var(--line)';
     content.append(image);
 
     if (photo.caption) {
@@ -189,11 +200,11 @@ function renderStep() {
   const partsList = safeArray(step.parts);
   const photos = safeArray(step.photos);
 
-  setText('stepBadge', `ÉTAPE ${String(state.index + 1).padStart(2, '0')} / ${String(state.sequence.length).padStart(2, '0')}`);
+  setText('stepBadge', `Étape ${String(state.index + 1).padStart(2, '0')} / ${String(state.sequence.length).padStart(2, '0')}`);
   const progress = $('progressBar');
   if (progress) progress.style.width = `${(state.index + 1) / state.sequence.length * 100}%`;
 
-  setText('chapterKicker', `CHAPITRE ${String(step.chapterIndex + 1).padStart(2, '0')} · ${safeText(chapter?.title).toUpperCase()}`);
+  setText('chapterKicker', `Chapitre ${String(step.chapterIndex + 1).padStart(2, '0')} · ${safeText(chapter?.title)}`);
   setText('stepTitle', step.title);
   setText('viewerTitle', chapter?.title || 'Guide de montage');
   setText('stepDescription', step.description);
@@ -261,7 +272,7 @@ function openSheet(index) {
   const chapter = state.chapters[index];
   if (!chapter) return;
 
-  setText('sheetChapter', `CHAPITRE ${String(index + 1).padStart(2, '0')} / ${state.chapters.length} · FICHE DE PRÉPARATION`);
+  setText('sheetChapter', `Chapitre ${String(index + 1).padStart(2, '0')} / ${String(state.chapters.length).padStart(2, '0')} · Fiche de préparation`);
   setText('sheetTitle', chapter.title);
 
   const body = $('bomRows');
@@ -312,7 +323,6 @@ function openSheet(index) {
   const sheet = $('sheet');
   if (sheet) sheet.hidden = false;
   updateSheet(index);
-  $('closeSheet')?.focus();
 }
 
 function updateSheet(index) {
@@ -410,12 +420,6 @@ $('openSheet')?.addEventListener('click', () => {
 $('closeSheet')?.addEventListener('click', () => {
   const sheet = $('sheet');
   if (sheet) sheet.hidden = true;
-});
-$('sheet')?.addEventListener('click', event => {
-  if (event.target === $('sheet')) $('sheet').hidden = true;
-});
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && $('sheet')) $('sheet').hidden = true;
 });
 
 setProcedureData(demoChapters.map(normalizeDemoChapter), 'demo');

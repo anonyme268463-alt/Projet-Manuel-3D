@@ -38,17 +38,16 @@ function ensureShell() {
     overlay.id = "guideAuthOverlay";
     overlay.innerHTML = `
       <section class="ga-card" role="dialog" aria-modal="true" aria-labelledby="gaTitle">
-        <div class="ga-brand">ATELIER <span>3D</span></div>
-        <p class="ga-eyebrow">MANUEL NUMÉRIQUE · ANTILOPE VAN</p>
+        <div class="ga-brand"><img src="./atelier-3d-mark.svg" alt="" width="34" height="34"><div><strong>Atelier <span>3D</span></strong><small>Antilope Van</small></div></div>
         <h1 id="gaTitle">Connexion à l'atelier</h1>
         <p class="ga-subtitle">Identifie-toi pour accéder aux procédures et aux outils autorisés.</p>
         <form id="gaLoginForm">
-          <label for="gaUsername">IDENTIFIANT</label>
+          <label for="gaUsername">Identifiant</label>
           <input id="gaUsername" autocomplete="username" required maxlength="30" placeholder="Ton identifiant">
-          <label for="gaPassword">MOT DE PASSE</label>
+          <label for="gaPassword">Mot de passe</label>
           <input id="gaPassword" type="password" autocomplete="current-password" required placeholder="Mot de passe">
           <p id="gaError" class="ga-error" role="alert"></p>
-          <button class="ga-primary" type="submit">Se connecter <span>→</span></button>
+          <button class="ga-primary" type="submit"><span class="ga-label">Se connecter</span><span aria-hidden="true">→</span></button>
           <button id="gaRetryProfile" class="ga-retry" type="button" hidden>Réessayer la vérification</button>
         </form>
         <p class="ga-foot">Les comptes sont créés uniquement par un administrateur.</p>
@@ -63,24 +62,30 @@ function ensureShell() {
   if (!$("guideAccountPanel")) {
     const panel = document.createElement("section");
     panel.id = "guideAccountPanel";
+    panel.className = "app-window";
+    panel.hidden = true;
+    panel.dataset.window = "";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "gaAdminTitle");
     panel.innerHTML = `
       <div class="ga-admin-head">
-        <div><small>ADMINISTRATION</small><h2>Gestion des accès</h2><p>Créer les comptes opérateurs et administrateurs.</p></div>
-        <button id="gaCloseAdmin" type="button" aria-label="Fermer">✕</button>
+        <div><small>Administration</small><h2 id="gaAdminTitle">Gestion des accès</h2><p>Créer les comptes opérateurs et administrateurs.</p></div>
+        <button id="gaCloseAdmin" class="window-close" type="button" aria-label="Fermer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
       <form id="gaCreateForm" class="ga-create-form">
-        <label>IDENTIFIANT<input id="gaNewUsername" required minlength="3" maxlength="30" pattern="[A-Za-z0-9._-]+" placeholder="ex. atelier01"></label>
-        <label>NOM AFFICHÉ<input id="gaNewName" required maxlength="60" placeholder="Prénom ou nom"></label>
-        <label>MOT DE PASSE TEMPORAIRE<input id="gaNewPassword" type="password" required minlength="8" autocomplete="new-password"></label>
-        <label>RÔLE<select id="gaNewRole"><option value="Visit">Visit — Consultation</option><option value="Admin">Admin — Administration complète</option></select></label>
+        <label>Identifiant<input id="gaNewUsername" required minlength="3" maxlength="30" pattern="[A-Za-z0-9._-]+" placeholder="ex. atelier01"></label>
+        <label>Nom affiché<input id="gaNewName" required maxlength="60" placeholder="Prénom ou nom"></label>
+        <label>Mot de passe temporaire<input id="gaNewPassword" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label>Rôle<select id="gaNewRole"><option value="Visit">Visit — Consultation</option><option value="Admin">Admin — Administration complète</option></select></label>
         <button class="ga-primary" type="submit">Créer le compte</button>
         <p id="gaCreateMessage" role="status"></p>
       </form>
-      <div class="ga-users-head"><strong>Comptes enregistrés</strong><button id="gaRefreshUsers" type="button">Actualiser</button></div>
+      <div class="ga-users-head"><strong>Comptes enregistrés</strong><button id="gaRefreshUsers" class="btn btn-outline" type="button">Actualiser</button></div>
       <div id="gaUsersList" class="ga-users-list">Chargement…</div>
       <p class="ga-foot">Les mots de passe sont gérés exclusivement par Firebase Authentication.</p>`;
     document.body.append(panel);
-    $("gaCloseAdmin").onclick = () => panel.classList.remove("open");
+    $("gaCloseAdmin").onclick = () => { panel.hidden = true; };
     $("gaCreateForm").addEventListener("submit", createAccount);
     $("gaRefreshUsers").onclick = loadUsers;
   }
@@ -120,7 +125,9 @@ function showApp(user, profile) {
     badge.id = "guideUserBadge";
     document.querySelector(".top-actions")?.append(badge);
   }
-  badge.innerHTML = `<span>${escapeHtml(profile.name || profile.username || "Utilisateur")}</span><b>${admin ? "ADMIN" : "VISITEUR"}</b><button id="gaLogout" type="button">Déconnexion</button>`;
+  const displayName = profile.name || profile.username || "Utilisateur";
+  const initials = displayName.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
+  badge.innerHTML = `<span class="ga-avatar" aria-hidden="true">${escapeHtml(initials)}</span><span class="ga-who"><strong>${escapeHtml(displayName)}</strong><small>${admin ? "Administrateur" : "Opérateur"}</small></span><button id="gaLogout" class="icon-btn" type="button" title="Se déconnecter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg><span class="sr-only">Déconnexion</span></button>`;
   $("gaLogout").onclick = async () => {
     try { await signOut(auth); }
     catch (error) { console.error("[Guide 3D] Déconnexion :", error); }
@@ -143,17 +150,20 @@ function showApp(user, profile) {
     if (!adminButton) {
       adminButton = document.createElement("button");
       adminButton.id = "gaOpenAdmin";
-      adminButton.className = "ga-admin-button";
-      adminButton.textContent = "⚙ Comptes";
-      document.querySelector(".top-actions")?.append(adminButton);
+      adminButton.className = "ga-admin-button icon-btn";
+      adminButton.title = "Gestion des comptes";
+      adminButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M17 11h5M19.5 8.5v5"/></svg><span class="label">Comptes</span>`;
+      const badgeElement = $("guideUserBadge");
+      if (badgeElement) badgeElement.before(adminButton);
+      else document.querySelector(".top-actions")?.append(adminButton);
       adminButton.onclick = () => {
-        $("guideAccountPanel").classList.add("open");
+        $("guideAccountPanel").hidden = false;
         loadUsers();
       };
     }
   } else {
     $("gaOpenAdmin")?.remove();
-    $("guideAccountPanel")?.classList.remove("open");
+    if ($("guideAccountPanel")) $("guideAccountPanel").hidden = true;
   }
 }
 

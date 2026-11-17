@@ -2,48 +2,140 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#112a4d">
-<meta name="description" content="Démonstrateur non officiel de manuel d'assemblage 3D interactif pour van aménagé.">
-<title>Atelier 3D | Démonstrateur Antilope Van</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2f5f">
+<meta name="description" content="Atelier 3D — manuel d'assemblage interactif des vans aménagés Antilope Van.">
+<title>Atelier 3D · Antilope Van</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="./styles.css">
 <link rel="stylesheet" href="./creator.css">
 <link rel="stylesheet" href="./auth.css">
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<script>
+  // Préférences d'affichage appliquées avant le rendu pour éviter les sauts de mise en page.
+  try {
+    const p = JSON.parse(localStorage.getItem('guide3d:layout') || '{}');
+    const r = document.documentElement;
+    if (p.touch) r.classList.add('touch-mode');
+    if (p.sideCollapsed) r.classList.add('side-collapsed');
+    if (p.guideCollapsed) r.classList.add('guide-collapsed');
+    if (p.sideW) r.style.setProperty('--side-w', p.sideW + 'px');
+    if (p.guideW) r.style.setProperty('--guide-w', p.guideW + 'px');
+  } catch (e) {}
+</script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
+<a class="skip-link" href="#scene">Aller à la vue 3D</a>
+
 <header class="topbar">
   <div class="brand">
-    <img src="./antilope-van-logo.webp" alt="Antilope Van" class="brand-logo">
-    <div class="brand-divider"></div>
-    <div><strong>ATELIER <span>3D</span></strong><small>MANUEL D'ASSEMBLAGE</small></div>
+    <img src="./antilope-van-logo.webp" alt="Antilope Van" class="brand-logo" width="303" height="97">
+    <span class="brand-divider" aria-hidden="true"></span>
+    <div class="product">
+      <img src="./atelier-3d-mark.svg" alt="" class="product-mark" width="30" height="30">
+      <div class="product-name"><strong>Atelier <span>3D</span></strong><small>Manuel d'assemblage</small></div>
+    </div>
   </div>
   <div class="top-actions">
-    <span class="version">VERSION DÉMO 2.1</span>
-    <span class="status"><i></i> Prototype non officiel</span>
+    <div class="layout-controls" role="group" aria-label="Disposition">
+      <button type="button" class="icon-btn" id="toggleSide" aria-pressed="true" title="Afficher / masquer les chapitres ( [ )">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>
+        <span class="sr-only">Chapitres</span>
+      </button>
+      <button type="button" class="icon-btn" id="toggleGuide" aria-pressed="true" title="Afficher / masquer le guide ( ] )">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/></svg>
+        <span class="sr-only">Guide opérateur</span>
+      </button>
+      <button type="button" class="icon-btn" id="toggleTouch" aria-pressed="false" title="Mode tablette d'atelier : boutons agrandis">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="3"/><path d="M10.5 18h3"/></svg>
+        <span class="label">Tablette</span>
+      </button>
+    </div>
+    <span class="status" id="dataStatus"><i></i> Données de démonstration</span>
   </div>
 </header>
+
 <div class="workspace">
-  <aside class="sidebar">
-    <div class="eyebrow">ESPACE DE PRODUCTION</div>
-    <h1>Bibliothèque<br>des procédures<span class="dot">.</span></h1>
-    <div class="field"><label for="vehicle">VÉHICULE</label><select id="vehicle"><option>Van générique · Démonstration</option></select></div>
-    <div class="field"><label for="station">POSTE DE TRAVAIL</label><select id="station"><option>01 · Assemblage cuisine</option></select></div>
-    <div class="side-heading"><span>CHAPITRES</span><span id="chapterCount"></span></div>
-    <nav id="chapterList" aria-label="Chapitres du manuel"></nav>
-    <div class="side-footer"><div class="footer-icon">ⓘ</div><p><strong>Projet pilote</strong><br>Les étapes, références et dimensions sont fictives. Ne pas utiliser comme instruction de fabrication.</p></div>
+  <aside class="sidebar" id="sidebar" aria-label="Chapitres">
+    <div class="panel-scroll">
+      <div class="eyebrow">Espace de production</div>
+      <h1>Bibliothèque des procédures</h1>
+      <div class="config-card">
+        <div class="field"><label for="vehicle">Véhicule</label><select id="vehicle"><option>Van générique · Démonstration</option></select></div>
+        <div class="field"><label for="station">Poste de travail</label><select id="station"><option>01 · Assemblage cuisine</option></select></div>
+      </div>
+      <div class="side-heading"><span>Chapitres</span><span id="chapterCount"></span></div>
+      <nav id="chapterList" aria-label="Chapitres du manuel"></nav>
+    </div>
+    <div class="side-footer">
+      <div class="footer-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+        <p><strong>Projet pilote</strong><br>Étapes, références et dimensions de démonstration. Ne pas utiliser comme instruction de fabrication.</p>
+      </div>
+    </div>
   </aside>
+  <div class="splitter" id="splitSide" role="separator" aria-orientation="vertical" aria-label="Redimensionner les chapitres" tabindex="0"></div>
+
   <main class="center">
-    <div class="viewer-heading"><div><div class="eyebrow">VISUALISATION TECHNIQUE / ASSEMBLAGE</div><h2 id="viewerTitle">Cuisine · Vue d'ensemble</h2></div><span class="view-badge"><span class="green-dot"></span> MODÈLE 3D INTERACTIF</span></div>
-    <div class="viewport" id="viewport"><div id="scene" role="img" aria-label="Maquette tridimensionnelle de cuisine de van"></div><div class="view-hint">◈ <span id="partHint">Vue générale du sous-ensemble</span></div><div class="axis-label">MODÈLE SCHÉMATIQUE · SANS COTES</div><div class="viewer-tools"><button id="reset" title="Recentrer la caméra">⌖ <span>Recentrer</span></button><button id="explode" aria-pressed="false" title="Afficher les pièces séparées">⇱ <span>Vue éclatée</span></button><button id="highlight" aria-pressed="true" title="Activer la surbrillance">◉ <span>Surbrillance</span></button><button id="zoomIn" title="Zoomer">＋</button><button id="zoomOut" title="Dézoomer">−</button></div><div id="sceneError" class="scene-error" hidden><strong>La 3D n'a pas pu être chargée.</strong><p>Vérifiez la connexion Internet et rechargez la page. Les instructions restent accessibles.</p></div></div>
-    <div class="viewer-bottom"><span>🖱 Rotation : glisser · Zoom : molette ou pincement · Déplacement : clic droit</span><span>THREE.JS · WEBGL</span></div>
+    <div class="viewer-heading">
+      <div>
+        <div class="eyebrow">Visualisation technique · Assemblage</div>
+        <h2 id="viewerTitle">Cuisine · Vue d'ensemble</h2>
+      </div>
+      <span class="view-badge"><span class="green-dot"></span> Modèle 3D interactif</span>
+    </div>
+    <div class="viewport" id="viewport">
+      <div id="scene" role="img" aria-label="Maquette tridimensionnelle du meuble cuisine" tabindex="-1"></div>
+      <div class="view-hint"><span class="hint-dot"></span><span id="partHint">Vue générale du sous-ensemble</span></div>
+      <div class="axis-label">Modèle schématique · sans cotes</div>
+      <div class="viewer-tools" role="toolbar" aria-label="Outils de la vue 3D">
+        <button id="reset" title="Recentrer la caméra"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>Recentrer</span></button>
+        <button id="explode" aria-pressed="false" title="Afficher les pièces séparées"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg><span>Vue éclatée</span></button>
+        <button id="highlight" aria-pressed="true" title="Activer la surbrillance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3ZM9.5 21h5"/></svg><span>Surbrillance</span></button>
+        <span class="tool-sep" aria-hidden="true"></span>
+        <button id="zoomIn" title="Zoomer" aria-label="Zoomer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button id="zoomOut" title="Dézoomer" aria-label="Dézoomer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+      </div>
+      <div id="sceneError" class="scene-error" hidden><strong>La 3D n'a pas pu être chargée.</strong><p>Vérifiez la connexion Internet et rechargez la page. Les instructions restent accessibles.</p></div>
+    </div>
+    <div class="viewer-bottom"><span>Rotation : glisser · Zoom : molette ou pincement · Déplacement : clic droit · Étapes : ← →</span><span>Three.js · WebGL</span></div>
   </main>
-  <aside class="instructions"><div class="instruction-top"><div class="eyebrow">GUIDE OPÉRATEUR</div><div class="step-badge" id="stepBadge">ÉTAPE 01 / 07</div></div><div class="progress-track"><div id="progressBar"></div></div><div class="chapter-kicker" id="chapterKicker"></div><h2 id="stepTitle">Chargement...</h2><p class="step-desc" id="stepDescription"></p><div class="detail-card"><div class="detail-label">◈ PIÈCES CONCERNÉES</div><div id="stepParts" class="detail-content"></div></div><div class="detail-card"><div class="detail-label">✓ POINT DE CONTRÔLE</div><div id="stepCheck" class="detail-content"></div></div><div class="navigation"><button id="prev" class="btn-outline">← Précédent</button><button id="next" class="btn-primary">Suivant →</button></div><button id="openSheet" class="sheet-link">▤ Consulter la nomenclature du chapitre ↗</button><div class="safety"><strong>⚠ DOCUMENT DE DÉMONSTRATION</strong><p>Aucune instruction de raccordement gaz, eau ou électricité n'est fournie. Utiliser uniquement les procédures approuvées par l'entreprise.</p></div><div class="instruction-footer">CONCEPT · MANUEL NUMÉRIQUE INTERACTIF</div></aside>
+
+  <div class="splitter" id="splitGuide" role="separator" aria-orientation="vertical" aria-label="Redimensionner le guide" tabindex="0"></div>
+  <aside class="instructions" id="guidePanel" aria-label="Guide opérateur">
+    <div class="instruction-top"><div class="eyebrow">Guide opérateur</div><div class="step-badge" id="stepBadge">Étape 01 / 07</div></div>
+    <div class="progress-track"><div id="progressBar"></div></div>
+    <div class="chapter-kicker" id="chapterKicker"></div>
+    <h2 id="stepTitle">Chargement…</h2>
+    <p class="step-desc" id="stepDescription"></p>
+    <div class="detail-card"><div class="detail-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8l9 5 9-5ZM3 8v8l9 5 9-5V8M12 13v8"/></svg>Pièces concernées</div><div id="stepParts" class="detail-content"></div></div>
+    <div class="detail-card"><div class="detail-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>Point de contrôle</div><div id="stepCheck" class="detail-content"></div></div>
+    <div class="navigation"><button id="prev" class="btn btn-outline">← Précédent</button><button id="next" class="btn btn-primary">Suivant →</button></div>
+    <button id="openSheet" class="sheet-link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Consulter la nomenclature du chapitre</button>
+    <div class="safety"><strong>Document de démonstration</strong><p>Aucune instruction de raccordement gaz, eau ou électricité n'est fournie. Utiliser uniquement les procédures approuvées par l'entreprise.</p></div>
+    <div class="instruction-footer">Antilope Van · Manuel numérique interactif</div>
+  </aside>
 </div>
-<div id="sheet" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="modal-panel"><div class="modal-header"><div><div class="eyebrow" id="sheetChapter"></div><h2 id="sheetTitle">Fiche de préparation</h2><p>Vérifier les pièces nécessaires avant de commencer. Références fictives.</p></div><button id="closeSheet" class="icon-button" aria-label="Fermer la fiche">✕</button></div><div class="table-scroll"><table><thead><tr><th>VÉRIFIÉ</th><th>CODE ARTICLE</th><th>DÉSIGNATION</th><th>QTÉ</th></tr></thead><tbody id="bomRows"></tbody></table></div><div class="modal-footer"><div><strong id="sheetStatus">0 pièce vérifiée</strong><div class="mini-track"><div id="sheetProgress"></div></div></div><button id="startChapter" class="btn-primary">Démarrer le chapitre →</button></div></div></div>
+
+<div id="sheet" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle" data-window>
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div><div class="eyebrow" id="sheetChapter"></div><h2 id="sheetTitle">Fiche de préparation</h2><p>Vérifier les pièces nécessaires avant de commencer.</p></div>
+      <button id="closeSheet" class="window-close" aria-label="Fermer la fiche"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="table-scroll"><table><thead><tr><th>Vérifié</th><th>Code article</th><th>Désignation</th><th>Qté</th></tr></thead><tbody id="bomRows"></tbody></table></div>
+    <div class="modal-footer"><div><strong id="sheetStatus">0 pièce vérifiée</strong><div class="mini-track"><div id="sheetProgress"></div></div></div><button id="startChapter" class="btn btn-primary">Démarrer le chapitre →</button></div>
+  </div>
+</div>
+
+<script type="module" src="./ui.js"></script>
 <script type="module" src="./app.js"></script>
 <script type="module" src="./onboarding.js"></script>
 <script type="module" src="./creator.js"></script>
 <script type="module" src="./auth-gate.js"></script>
-</body></html>
+</body>
+</html>

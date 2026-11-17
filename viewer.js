@@ -14,7 +14,7 @@ export class AssemblyViewer {
     this.controls.enableDamping=true;this.controls.target.set(0,1,0);this.controls.minDistance=2;this.controls.maxDistance=10;
     this.scene.add(new THREE.HemisphereLight(0xffffff,0x8395ac,2.6));
     const key=new THREE.DirectionalLight(0xffffff,2.5);key.position.set(3,7,4);this.scene.add(key);
-    const grid=new THREE.GridHelper(8,16,0xc8d4df,0xe1e8ee);grid.position.y=-.02;this.scene.add(grid);
+    const grid=new THREE.GridHelper(8,16,0xc3cbdc,0xdde2ec);grid.position.y=-.02;this.scene.add(grid);
     this.buildModel();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(host);this.resize();this.render();
   }
   box(id,size,position,color){
@@ -47,7 +47,7 @@ export class AssemblyViewer {
       const selected=this.focus.includes(id),dim=this.highlighted&&this.focus.length>0&&!selected;
       part.mesh.material.opacity=dim?.17:1;part.mesh.material.depthWrite=!dim;
       part.mesh.material.color.setHex(part.color);
-      part.mesh.material.emissive.setHex(this.highlighted&&selected?0x1b6856:0);
+      part.mesh.material.emissive.setHex(this.highlighted&&selected?0x0b8a5d:0);
       part.mesh.material.emissiveIntensity=.35;
       part.mesh.position.copy(part.origin);
       if(this.exploded){part.mesh.position.x+=Math.sign(part.origin.x||1)*.3;if(['top','sink','hob'].includes(id))part.mesh.position.y+=.4;}
