@@ -2,92 +2,73 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signedIn() {
       return request.auth != null;
     }
 
-    function profilePath(uid) {
-      return /databases/$(database)/documents/users/$(uid);
+    function ownProfilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
-    function hasProfile() {
-      return signedIn() && exists(profilePath(request.auth.uid));
-    }
-
-    function isActiveUser() {
-      return hasProfile()
-        && get(profilePath(request.auth.uid)).data.get('active', true) == true
-        && get(profilePath(request.auth.uid)).data.get('role', '') in ['Visit', 'Admin'];
+    function hasActiveProfile() {
+      return signedIn()
+        && exists(ownProfilePath())
+        && get(ownProfilePath()).data.get('active', true) == true
+        && get(ownProfilePath()).data.get('role', '') in ['Visit', 'Admin'];
     }
 
     function isAdmin() {
-      return isActiveUser()
-        && get(profilePath(request.auth.uid)).data.get('role', '') == 'Admin';
+      return hasActiveProfile()
+        && get(ownProfilePath()).data.get('role', '') == 'Admin';
     }
 
     match /users/{uid} {
-      // Un utilisateur peut lire son propre profil pour initialiser sa session.
       allow get: if signedIn() && request.auth.uid == uid;
       allow list: if isAdmin();
       allow create, update, delete: if isAdmin();
     }
 
     match /procedures/{id} {
-      allow get: if isActiveUser()
+      allow get, list: if hasActiveProfile()
         && (isAdmin() || resource.data.status == 'published');
-      allow list: if isActiveUser()
-        && (isAdmin() || resource.data.status == 'published');
-
       allow create, update, delete: if isAdmin();
     }
 
     match /chapters/{id} {
-      // Les visiteurs ne peuvent lire que les chapitres explicitement publiés.
-      allow get: if isActiveUser()
+      allow get, list: if hasActiveProfile()
         && (isAdmin() || resource.data.published == true);
-      allow list: if isActiveUser()
-        && (isAdmin() || resource.data.published == true);
-
       allow create, update, delete: if isAdmin();
     }
 
     match /vehicles/{id} {
-      allow read: if isActiveUser();
+      allow read: if hasActiveProfile();
       allow create, update, delete: if isAdmin();
     }
-
     match /finishes/{id} {
-      allow read: if isActiveUser();
+      allow read: if hasActiveProfile();
       allow create, update, delete: if isAdmin();
     }
-
     match /workstations/{id} {
-      allow read: if isActiveUser();
+      allow read: if hasActiveProfile();
       allow create, update, delete: if isAdmin();
     }
-
     match /models3d/{id} {
-      allow read: if isActiveUser();
+      allow read: if hasActiveProfile();
       allow create, update, delete: if isAdmin();
     }
-
     match /components3d/{id} {
-      allow read: if isActiveUser();
+      allow read: if hasActiveProfile();
       allow create, update, delete: if isAdmin();
     }
-
     match /materials/{id} {
-      allow read: if isActiveUser();
+      allow read: if hasActiveProfile();
       allow create, update, delete: if isAdmin();
     }
-
     match /assets/{id} {
-      allow read: if isActiveUser();
+      allow read: if hasActiveProfile();
       allow create, update, delete: if isAdmin();
     }
 
-    // Tout le reste est interdit.
     match /{document=**} {
       allow read, write: if false;
     }

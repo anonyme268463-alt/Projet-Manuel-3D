@@ -1,44 +1,36 @@
 /*
- * GUIDE 3D — Authentification et gestion des comptes
- * Firebase Auth Email/Password + profils Firestore users/{uid}.
- * Identifiant public : aucun e-mail réel n'est demandé ni affiché.
+ * GUIDE 3D — Authentification et profils utilisateurs
+ * Identifiant public converti en adresse technique Firebase Auth.
+ * Le mot de passe n'est jamais stocké dans Firestore.
  */
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
   createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, collection, getDocs, serverTimestamp
+  collection, doc, getDocFromServer, getDocs, setDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { auth, db, getAccountCreationAuth } from "./firebase-client.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCG9nmgw8xm83xD6BlbXLyS8fCd41olX6s",
-  authDomain: "guide-3d.firebaseapp.com",
-  projectId: "guide-3d",
-  storageBucket: "guide-3d.firebasestorage.app",
-  messagingSenderId: "714446657255",
-  appId: "1:714446657255:web:7ed8061d9baf056200b442",
-  measurementId: "G-VJZ0W8ST2C"
-};
-
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 let currentProfile = null;
-let secondaryApp = null;
-let secondaryAuth = null;
+let activeUser = null;
+let authObserverStarted = false;
+let profileCheckSequence = 0;
 
-const loginEmail = (username) => {
+const loginEmail = username => {
   const clean = String(username || "").trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(clean)) {
     throw new Error("L'identifiant doit contenir 3 à 30 caractères : lettres, chiffres, point, tiret ou underscore.");
   }
   return `${clean}@login.guide3d.invalid`;
 };
-const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, c =>
-  ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])
+);
 
 function ensureShell() {
   if (!$("guideAuthOverlay")) {
@@ -57,12 +49,17 @@ function ensureShell() {
           <input id="gaPassword" type="password" autocomplete="current-password" required placeholder="Mot de passe">
           <p id="gaError" class="ga-error" role="alert"></p>
           <button class="ga-primary" type="submit">Se connecter <span>→</span></button>
+          <button id="gaRetryProfile" class="ga-retry" type="button" hidden>Réessayer la vérification</button>
         </form>
         <p class="ga-foot">Les comptes sont créés uniquement par un administrateur.</p>
       </section>`;
     document.body.append(overlay);
     $("gaLoginForm").addEventListener("submit", login);
+    $("gaRetryProfile").addEventListener("click", () => {
+      if (activeUser) verifyProfile(activeUser);
+    });
   }
+
   if (!$("guideAccountPanel")) {
     const panel = document.createElement("section");
     panel.id = "guideAccountPanel";
@@ -81,7 +78,7 @@ function ensureShell() {
       </form>
       <div class="ga-users-head"><strong>Comptes enregistrés</strong><button id="gaRefreshUsers" type="button">Actualiser</button></div>
       <div id="gaUsersList" class="ga-users-list">Chargement…</div>
-      <p class="ga-foot">Pour désactiver un compte, désactive-le dans Firebase Authentication. Le rôle est géré dans Firestore.</p>`;
+      <p class="ga-foot">Les mots de passe sont gérés exclusivement par Firebase Authentication.</p>`;
     document.body.append(panel);
     $("gaCloseAdmin").onclick = () => panel.classList.remove("open");
     $("gaCreateForm").addEventListener("submit", createAccount);
@@ -89,32 +86,29 @@ function ensureShell() {
   }
 }
 
-function setError(message = "") { $("gaError").textContent = message; }
+function setError(message = "", retry = false) {
+  $("gaError").textContent = message;
+  $("gaRetryProfile").hidden = !retry;
+}
 
-async function login(event) {
-  event.preventDefault();
-  setError("");
-  const button = $("gaLoginForm").querySelector("button");
-  button.disabled = true;
-  try {
-    const email = loginEmail($("gaUsername").value);
-    await signInWithEmailAndPassword(auth, email, $("gaPassword").value);
-  } catch (error) {
-    console.error("[Guide 3D] Connexion :", error);
-    setError(error.code === "auth/invalid-credential" || error.code === "auth/user-not-found"
-      ? "Identifiant ou mot de passe incorrect."
-      : error.code === "auth/too-many-requests"
-        ? "Trop de tentatives. Réessaie plus tard."
-        : error.message || "Connexion impossible.");
-  } finally {
-    button.disabled = false;
-  }
+function showLogin(message = "") {
+  $("guideAuthOverlay")?.classList.remove("ga-hidden");
+  document.body.classList.add("ga-locked");
+  $("guideUserBadge")?.remove();
+  $("gaOpenAdmin")?.remove();
+  currentProfile = null;
+  window.__GUIDE3D_USER__ = null;
+  window.__CREATOR_ADMIN__ = false;
+  document.documentElement.dataset.creatorAdmin = "false";
+  if (message) setError(message);
 }
 
 function showApp(user, profile) {
   $("guideAuthOverlay").classList.add("ga-hidden");
   document.body.classList.remove("ga-locked");
   currentProfile = profile;
+  activeUser = user;
+
   const admin = profile.role === "Admin" && profile.active !== false;
   window.__GUIDE3D_USER__ = { uid: user.uid, ...profile };
   window.__CREATOR_ADMIN__ = admin;
@@ -127,15 +121,23 @@ function showApp(user, profile) {
     document.querySelector(".top-actions")?.append(badge);
   }
   badge.innerHTML = `<span>${escapeHtml(profile.name || profile.username || "Utilisateur")}</span><b>${admin ? "ADMIN" : "VISITEUR"}</b><button id="gaLogout" type="button">Déconnexion</button>`;
-  $("gaLogout").onclick = async () => { await signOut(auth); };
+  $("gaLogout").onclick = async () => {
+    try { await signOut(auth); }
+    catch (error) { console.error("[Guide 3D] Déconnexion :", error); }
+  };
 
-  const observer = new MutationObserver(() => {
+  const updateCreatorVisibility = () => {
     const creator = document.querySelector(".creator-open");
     if (creator) creator.hidden = !admin;
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-  const creator = document.querySelector(".creator-open");
-  if (creator) creator.hidden = !admin;
+  };
+  updateCreatorVisibility();
+
+  if (!window.__GUIDE3D_CREATOR_OBSERVER__) {
+    const observer = new MutationObserver(updateCreatorVisibility);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.__GUIDE3D_CREATOR_OBSERVER__ = observer;
+  }
+
   if (admin) {
     let adminButton = $("gaOpenAdmin");
     if (!adminButton) {
@@ -155,21 +157,89 @@ function showApp(user, profile) {
   }
 }
 
+function explainProfileError(error) {
+  if (error?.code === "permission-denied") {
+    return "Firebase refuse la lecture du profil. Vérifie que les règles Firestore publiées autorisent chaque utilisateur à lire son propre document users/{uid}.";
+  }
+  if (error?.code === "unavailable" || /offline|network/i.test(error?.message || "")) {
+    return "Firestore ne parvient pas à joindre le service de lecture. Réessaie ; le transport réseau est configuré en long-polling dans cette version.";
+  }
+  return `Impossible de vérifier le profil (${error?.code || "erreur"}). ${error?.message || "Réessaie."}`;
+}
+
+async function verifyProfile(user) {
+  const sequence = ++profileCheckSequence;
+  activeUser = user;
+  setError("Vérification des autorisations…");
+  $("gaRetryProfile").hidden = true;
+
+  try {
+    // Lecture serveur explicite : évite de confondre une ancienne valeur du cache
+    // avec un profil réellement accessible dans Firestore.
+    const snapshot = await getDocFromServer(doc(db, "users", user.uid));
+    if (sequence !== profileCheckSequence) return;
+
+    if (!snapshot.exists()) {
+      showLogin("Le compte est authentifié, mais son profil Firestore est introuvable. Le document users doit porter exactement l'UID Firebase.");
+      return;
+    }
+
+    const profile = snapshot.data();
+    if (profile.active === false || !["Visit", "Admin"].includes(profile.role)) {
+      await signOut(auth);
+      showLogin("Ce compte n'est pas autorisé. Vérifie les champs active et role dans Firestore.");
+      return;
+    }
+
+    showApp(user, profile);
+    setError("");
+  } catch (error) {
+    if (sequence !== profileCheckSequence) return;
+    console.error("[Guide 3D] Vérification du profil :", error);
+    // Ne pas déconnecter l'utilisateur sur une panne réseau temporaire.
+    showLogin(explainProfileError(error));
+    $("gaRetryProfile").hidden = false;
+  }
+}
+
+async function login(event) {
+  event.preventDefault();
+  setError("");
+  const button = $("gaLoginForm").querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    const email = loginEmail($("gaUsername").value);
+    await signInWithEmailAndPassword(auth, email, $("gaPassword").value);
+    // Le contrôle du profil est déclenché par onAuthStateChanged.
+  } catch (error) {
+    console.error("[Guide 3D] Connexion :", error);
+    const message = error.code === "auth/invalid-credential" || error.code === "auth/user-not-found"
+      ? "Identifiant ou mot de passe incorrect."
+      : error.code === "auth/too-many-requests"
+        ? "Trop de tentatives. Réessaie plus tard."
+        : error.message || "Connexion impossible.";
+    setError(message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function loadUsers() {
   const host = $("gaUsersList");
   if (!host || currentProfile?.role !== "Admin") return;
   host.textContent = "Chargement…";
   try {
     const snapshot = await getDocs(collection(db, "users"));
-    const rows = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
-    rows.sort((a,b) => String(a.name || a.username).localeCompare(String(b.name || b.username), "fr"));
-    host.innerHTML = rows.map(u => `
+    const rows = snapshot.docs.map(item => ({ uid: item.id, ...item.data() }));
+    rows.sort((a, b) => String(a.name || a.username || "").localeCompare(String(b.name || b.username || ""), "fr"));
+    host.innerHTML = rows.map(user => `
       <div class="ga-user-row">
-        <div><strong>${escapeHtml(u.name || u.username || "Compte")}</strong><small>${escapeHtml(u.username || "identifiant non renseigné")} · ${escapeHtml(u.uid)}</small></div>
-        <span class="ga-role ${u.role === "Admin" ? "admin" : ""}">${escapeHtml(u.role || "Visit")}</span>
+        <div><strong>${escapeHtml(user.name || user.username || "Compte")}</strong><small>${escapeHtml(user.username || "identifiant non renseigné")} · ${escapeHtml(user.uid)}</small></div>
+        <span class="ga-role ${user.role === "Admin" ? "admin" : ""}">${escapeHtml(user.role || "Visit")}</span>
       </div>`).join("") || "Aucun compte.";
   } catch (error) {
-    host.textContent = "Impossible de charger les comptes : " + error.message;
+    console.error("[Guide 3D] Liste des comptes :", error);
+    host.textContent = `Impossible de charger les comptes : ${error.message}`;
   }
 }
 
@@ -177,39 +247,49 @@ async function createAccount(event) {
   event.preventDefault();
   const message = $("gaCreateMessage");
   message.textContent = "";
-  if (currentProfile?.role !== "Admin") return;
+  if (currentProfile?.role !== "Admin" || !auth.currentUser) return;
+
   const username = $("gaNewUsername").value.trim().toLowerCase();
   const name = $("gaNewName").value.trim();
   const password = $("gaNewPassword").value;
   const role = $("gaNewRole").value;
   let email;
+
   try { email = loginEmail(username); }
   catch (error) { message.textContent = error.message; return; }
 
-  const submit = $("gaCreateForm").querySelector("button[type=submit]");
+  const submit = $("gaCreateForm").querySelector('button[type="submit"]');
   submit.disabled = true;
+  let secondaryAuth;
+  let createdUid = null;
+
   try {
-    // Auth secondaire : la session de l'administrateur reste connectée.
-    if (!secondaryApp) {
-      secondaryApp = initializeApp(firebaseConfig, "guide3d-account-creator");
-      secondaryAuth = getAuth(secondaryApp);
-    }
+    secondaryAuth = await getAccountCreationAuth();
     const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    const uid = credential.user.uid;
-    await setDoc(doc(db, "users", uid), {
-      username, name, role, active: true,
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    createdUid = credential.user.uid;
+
+    await setDoc(doc(db, "users", createdUid), {
+      username,
+      name,
+      role,
+      active: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
       createdBy: auth.currentUser.uid
     });
+
     await signOut(secondaryAuth);
     $("gaCreateForm").reset();
-    message.textContent = `Compte ${username} créé avec le rôle ${role}. Communique l'identifiant et le mot de passe de manière sécurisée.`;
+    message.textContent = `Compte ${username} créé avec le rôle ${role}. Transmets le mot de passe temporaire de manière sécurisée.`;
     await loadUsers();
   } catch (error) {
-    console.error("[Guide 3D] Création compte :", error);
+    console.error("[Guide 3D] Création de compte :", error);
     message.textContent = error.code === "auth/email-already-in-use"
       ? "Cet identifiant existe déjà."
       : error.message || "Création impossible.";
+    if (createdUid) {
+      message.textContent += " Le compte Auth a été créé, mais son profil Firestore n'a pas pu être enregistré. Vérifie les règles.";
+    }
   } finally {
     submit.disabled = false;
   }
@@ -217,29 +297,21 @@ async function createAccount(event) {
 
 ensureShell();
 document.body.classList.add("ga-locked");
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    currentProfile = null;
-    window.__GUIDE3D_USER__ = null;
-    window.__CREATOR_ADMIN__ = false;
-    document.documentElement.dataset.creatorAdmin = "false";
-    $("guideAuthOverlay").classList.remove("ga-hidden");
-    document.body.classList.add("ga-locked");
-    $("guideUserBadge")?.remove();
-    $("gaOpenAdmin")?.remove();
-    return;
-  }
-  try {
-    const snap = await getDoc(doc(db, "users", user.uid));
-    if (!snap.exists() || snap.data().active === false || !["Visit", "Admin"].includes(snap.data().role)) {
-      await signOut(auth);
-      setError("Ce compte n'est pas autorisé. Demande à un administrateur de vérifier ton accès.");
+showLogin();
+
+if (!authObserverStarted) {
+  authObserverStarted = true;
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      profileCheckSequence++;
+      activeUser = null;
+      currentProfile = null;
+      showLogin();
       return;
     }
-    showApp(user, snap.data());
-  } catch (error) {
-    console.error("[Guide 3D] Profil utilisateur :", error);
-    await signOut(auth);
-    setError("Impossible de vérifier les droits du compte. Réessaie ou contacte l'administrateur.");
-  }
-});
+    verifyProfile(user);
+  }, error => {
+    console.error("[Guide 3D] État Auth :", error);
+    showLogin(`Erreur de session Firebase : ${error.message}`);
+  });
+}
