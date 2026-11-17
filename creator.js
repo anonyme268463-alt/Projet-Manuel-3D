@@ -1,11 +1,10 @@
-import {initializeApp,getApps,getApp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import {getFirestore,collection,getDocs,doc,setDoc,deleteDoc,serverTimestamp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import {collection,getDocs,doc,setDoc,deleteDoc,serverTimestamp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import {db} from "./firebase-client.js";
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js";
 import {OrbitControls} from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js";
 import {GLTFLoader} from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js";
 import {GLTFExporter} from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/exporters/GLTFExporter.js";
-const config={apiKey:"AIzaSyCG9nmgw8xm83xD6BlbXLyS8fCd41olX6s",authDomain:"guide-3d.firebaseapp.com",projectId:"guide-3d",storageBucket:"guide-3d.firebasestorage.app",messagingSenderId:"714446657255",appId:"1:714446657255:web:7ed8061d9baf056200b442",measurementId:"G-VJZ0W8ST2C"};
-const app=getApps().length?getApp():initializeApp(config),db=getFirestore(app),$=id=>document.getElementById(id);
+const $=id=>document.getElementById(id);
 const cols=["vehicles","finishes","workstations","procedures","chapters","models3d","components3d","materials","assets"];
 const names={vehicles:"Véhicules",finishes:"Finitions",workstations:"Postes",procedures:"Guides",chapters:"Chapitres",models3d:"Modèles 3D",components3d:"Composants",materials:"Matériaux",assets:"Médias"};
 let col="vehicles",items=[],chosen=null,scene,camera,renderer,controls,group,selected=null,ray;
