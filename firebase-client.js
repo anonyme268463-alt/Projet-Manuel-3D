@@ -28,15 +28,19 @@ export const auth = getAuth(app);
 
 // initializeFirestore doit être appelé avant tout getFirestore(app).
 // Tous les modules du site passent désormais par ce fichier.
+// IMPORTANT : la base du projet s'appelle « default » (sans parenthèses).
+// Ce n'est PAS la base par défaut « (default) » que le SDK utilise si on ne précise rien.
+export const FIRESTORE_DATABASE_ID = "default";
+
 let firestore;
 try {
   firestore = initializeFirestore(app, {
-    experimentalForceLongPolling: true
-  });
+    experimentalAutoDetectLongPolling: true
+  }, FIRESTORE_DATABASE_ID);
 } catch (error) {
   // Si un autre module a déjà initialisé Firestore, réutiliser l'instance existante.
   if (error?.code === "failed-precondition" || error?.code === "already-initialized") {
-    firestore = getFirestore(app);
+    firestore = getFirestore(app, FIRESTORE_DATABASE_ID);
   } else {
     throw error;
   }
