@@ -1,19 +1,7 @@
 import { chapters as demoChapters, sequence as demoSequence, firstStepOfChapter as demoFirstStep } from './data.js';
 import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
-import { getFirestore, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCG9nmgw8xm83xD6BlbXLyS8fCd41olX6s",
-  authDomain: "guide-3d.firebaseapp.com",
-  projectId: "guide-3d",
-  storageBucket: "guide-3d.firebasestorage.app",
-  messagingSenderId: "714446657255",
-  appId: "1:714446657255:web:7ed8061d9baf056200b442",
-  measurementId: "G-VJZ0W8ST2C"
-};
-
-const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+import { collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+import { db } from './firebase-client.js';
 const $ = id => document.getElementById(id);
 
 const state = {
