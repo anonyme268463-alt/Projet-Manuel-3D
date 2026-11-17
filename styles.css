@@ -277,7 +277,7 @@ body.window-open{overflow:hidden}
   .topbar{padding:0 12px;gap:8px}
   .brand{gap:10px}.brand-logo{height:24px}.product-name small,.status,#toggleTouch .label{display:none}
   .center{padding:14px 12px 8px;height:58vh}
-  .viewer-heading h2{font-size:18px}.view-badge{display:none}
+  .viewer-heading h2{font-size:18px}.view-badge,.axis-label{display:none}
   .viewer-tools button span{display:none}
   .viewer-bottom span:first-child{font-size:10.5px}.viewer-bottom span:last-child{display:none}
   .instructions{padding:20px 16px}
