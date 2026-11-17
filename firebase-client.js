@@ -31,7 +31,7 @@ export const auth = getAuth(app);
 let firestore;
 try {
   firestore = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true
+    experimentalForceLongPolling: true
   });
 } catch (error) {
   // Si un autre module a déjà initialisé Firestore, réutiliser l'instance existante.
